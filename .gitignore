@@ -1,0 +1,29 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Databases
+audit.db
+*.db
+*.sqlite3
+
+# Local keys & certificates
+keys/*_private.pem
+keys/*_public.pem
+certificates/*.pem
+certificates/*.json
+certificates/revoked.json
+
+# User uploads and signatures
+uploads/
+signatures/*.sig
+*.sig
+
+# Environments and OS files
+.env
+.venv
+env/
+venv/
+.DS_Store
+Thumbs.db
