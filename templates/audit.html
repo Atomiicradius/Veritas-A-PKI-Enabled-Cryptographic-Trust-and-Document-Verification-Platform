@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% block title %}Audit Log — CryptoDAA{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h4 class="mb-0"><i class="bi bi-journal-text me-2"></i>Audit Log</h4>
+  <a href="/api/audit" class="btn btn-sm btn-outline-secondary" target="_blank">
+    <i class="bi bi-download me-1"></i>Export JSON
+  </a>
+</div>
+
+<div class="card shadow-sm">
+  <div class="card-body p-0">
+    <div class="table-responsive">
+      <table class="table table-hover table-sm mb-0">
+        <thead class="table-dark">
+          <tr>
+            <th>#</th>
+            <th>Timestamp (UTC)</th>
+            <th>Operation</th>
+            <th>Filename</th>
+            <th>File Hash (truncated)</th>
+            <th>Signer</th>
+            <th>Key Size</th>
+            <th>Result</th>
+            <th>Notes</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% if logs %}
+            {% for log in logs %}
+            <tr>
+              <td>{{ log.id }}</td>
+              <td class="text-nowrap small">{{ log.timestamp }}</td>
+              <td>
+                <span class="badge {% if log.operation == 'SIGN' %}bg-primary{% else %}bg-success{% endif %}">
+                  {{ log.operation }}
+                </span>
+              </td>
+              <td class="small">{{ log.filename }}</td>
+              <td><code class="small">{{ log.file_hash[:16] }}…</code></td>
+              <td>{{ log.signer }}</td>
+              <td>{{ log.key_size }}</td>
+              <td>
+                <span class="badge
+                  {% if log.result == 'VALID' or log.result == 'SUCCESS' %}bg-success
+                  {% elif log.result == 'INVALID' %}bg-danger
+                  {% else %}bg-warning text-dark{% endif %}">
+                  {{ log.result }}
+                </span>
+              </td>
+              <td class="small text-muted">{{ log.notes }}</td>
+            </tr>
+            {% endfor %}
+          {% else %}
+            <tr>
+              <td colspan="9" class="text-center text-muted py-4">No audit records yet. Sign or verify a document to begin.</td>
+            </tr>
+          {% endif %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}

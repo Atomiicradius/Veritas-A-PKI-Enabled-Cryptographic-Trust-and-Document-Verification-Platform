@@ -1,0 +1,254 @@
+{% extends "base.html" %}
+{% block title %}Dashboard — CryptoDAA{% endblock %}
+
+{% block content %}
+<div class="row g-3">
+
+  <!-- ── LEFT PANEL ──────────────────────────────────────────────── -->
+  <div class="col-lg-3">
+    <div class="card h-100 shadow-sm">
+      <div class="card-header bg-dark text-white fw-bold"><i class="bi bi-upload me-2"></i>Document & Settings</div>
+      <div class="card-body d-flex flex-column gap-3">
+
+        <!-- Drag-drop upload -->
+        <div id="drop-zone" class="drop-zone rounded border-dashed text-center p-3">
+          <i class="bi bi-file-earmark-arrow-up fs-2 text-secondary"></i>
+          <p class="mb-1 small text-muted">Drag &amp; drop file here</p>
+          <label class="btn btn-sm btn-outline-primary mt-1">
+            Browse <input type="file" id="file-input" hidden />
+          </label>
+          <div id="file-name" class="mt-2 small text-success fw-bold"></div>
+        </div>
+
+        <!-- User select -->
+        <div>
+          <label class="form-label fw-semibold">User (Signer / Verifier)</label>
+          <select id="user-select" class="form-select form-select-sm">
+            <option value="userA">User A</option>
+            <option value="userB">User B</option>
+          </select>
+        </div>
+
+        <!-- Key size -->
+        <div>
+          <label class="form-label fw-semibold">Key Size</label>
+          <div class="btn-group w-100" role="group">
+            <input type="radio" class="btn-check" name="key-size" id="ks-1024" value="1024" />
+            <label class="btn btn-outline-secondary btn-sm" for="ks-1024">1024-bit</label>
+            <input type="radio" class="btn-check" name="key-size" id="ks-2048" value="2048" checked />
+            <label class="btn btn-outline-primary btn-sm" for="ks-2048">2048-bit</label>
+          </div>
+        </div>
+
+        <!-- Hash algo -->
+        <div>
+          <label class="form-label fw-semibold">Hash Algorithm</label>
+          <div class="btn-group w-100" role="group">
+            <input type="radio" class="btn-check" name="hash-algo" id="ha-256" value="SHA-256" checked />
+            <label class="btn btn-outline-primary btn-sm" for="ha-256">SHA-256</label>
+            <input type="radio" class="btn-check" name="hash-algo" id="ha-512" value="SHA-512" />
+            <label class="btn btn-outline-secondary btn-sm" for="ha-512">SHA-512</label>
+          </div>
+        </div>
+
+        <hr class="my-1" />
+
+        <!-- Action buttons -->
+        <div class="d-grid gap-2">
+          <button id="btn-sign" class="btn btn-primary btn-sm"><i class="bi bi-pen-fill me-1"></i>Sign Document</button>
+          <button id="btn-verify" class="btn btn-success btn-sm"><i class="bi bi-shield-check me-1"></i>Verify Document</button>
+          <button id="btn-tamper" class="btn btn-warning btn-sm"><i class="bi bi-bug-fill me-1"></i>Tamper &amp; Verify</button>
+          <button id="btn-compare" class="btn btn-info btn-sm text-white" data-bs-toggle="modal" data-bs-target="#compareModal">
+            <i class="bi bi-columns-gap me-1"></i>Compare Mode
+          </button>
+        </div>
+
+        <!-- Verifier user (for verify) -->
+        <div id="verifier-block" class="d-none">
+          <label class="form-label fw-semibold small">Verifier's Public Key</label>
+          <select id="verifier-user-select" class="form-select form-select-sm">
+            <option value="userA">User A</option>
+            <option value="userB">User B</option>
+          </select>
+        </div>
+
+        <!-- Sig upload for verify -->
+        <div id="sig-upload-block" class="d-none">
+          <label class="form-label fw-semibold small">Upload .sig file</label>
+          <input type="file" id="sig-file-input" class="form-control form-control-sm" accept=".sig,.json" />
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- ── CENTER PANEL ────────────────────────────────────────────── -->
+  <div class="col-lg-6">
+    <div class="card h-100 shadow-sm">
+      <div class="card-header bg-dark text-white fw-bold"><i class="bi bi-diagram-3-fill me-2"></i>Cryptographic Pipeline</div>
+      <div class="card-body">
+
+        <!-- Status bar -->
+        <div id="status-bar" class="alert alert-secondary py-2 small mb-3 d-none" role="alert"></div>
+
+        <!-- Pipeline diagram -->
+        <div id="pipeline-container" class="pipeline-container mb-3">
+          <div class="pipeline-idle text-center text-muted py-5">
+            <i class="bi bi-hourglass fs-1"></i>
+            <p class="mt-2">Upload a file and click Sign or Verify to see the pipeline.</p>
+          </div>
+        </div>
+
+        <!-- Bottom tabs -->
+        <ul class="nav nav-tabs" id="bottomTabs">
+          <li class="nav-item"><a class="nav-link active" data-bs-toggle="tab" href="#tab-perf"><i class="bi bi-graph-up me-1"></i>Performance</a></li>
+          <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tab-avalanche"><i class="bi bi-grid-3x3 me-1"></i>Avalanche</a></li>
+          <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tab-attack"><i class="bi bi-shield-exclamation me-1"></i>Attacks</a></li>
+        </ul>
+
+        <div class="tab-content border border-top-0 rounded-bottom p-3" style="min-height:260px">
+
+          <!-- Performance tab -->
+          <div class="tab-pane fade show active" id="tab-perf">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+              <span class="small fw-semibold">Benchmark Mode:</span>
+              <div class="btn-group btn-group-sm">
+                <button class="btn btn-outline-primary active" id="bench-filesize">File Size</button>
+                <button class="btn btn-outline-primary" id="bench-keysize">Key Size</button>
+              </div>
+              <button class="btn btn-sm btn-secondary" id="btn-run-bench"><i class="bi bi-play-fill me-1"></i>Run</button>
+            </div>
+            <canvas id="perfChart" height="180"></canvas>
+          </div>
+
+          <!-- Avalanche tab -->
+          <div class="tab-pane fade" id="tab-avalanche">
+            <div id="avalanche-placeholder" class="text-center text-muted py-4">
+              <i class="bi bi-grid-3x3 fs-2"></i>
+              <p class="small mt-2">Run Tamper or Compare to see the avalanche heatmap.</p>
+            </div>
+            <div id="avalanche-result" class="d-none">
+              <div class="d-flex justify-content-between mb-1">
+                <small>Original: <code id="av-hash1" class="text-break"></code></small>
+              </div>
+              <div class="d-flex justify-content-between mb-2">
+                <small>Modified: <code id="av-hash2" class="text-break"></code></small>
+              </div>
+              <div id="avalanche-grid" class="avalanche-grid mb-2"></div>
+              <div class="small text-center">
+                Flipped bits: <strong id="av-flip-count"></strong> / 256
+                (<span id="av-flip-pct" class="text-danger fw-bold"></span>%)
+              </div>
+            </div>
+          </div>
+
+          <!-- Attack sim tab -->
+          <div class="tab-pane fade" id="tab-attack">
+            <div id="attack-table" class="text-center text-muted py-3">
+              <button class="btn btn-sm btn-outline-danger" id="btn-load-attack"><i class="bi bi-shield-exclamation me-1"></i>Load Security Analysis</button>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── RIGHT PANEL ─────────────────────────────────────────────── -->
+  <div class="col-lg-3">
+    <div class="card h-100 shadow-sm">
+      <div class="card-header bg-dark text-white fw-bold"><i class="bi bi-info-circle-fill me-2"></i>Result &amp; Details</div>
+      <div class="card-body d-flex flex-column gap-3">
+
+        <!-- Result badge -->
+        <div id="result-badge" class="result-badge text-center rounded py-3">
+          <span class="fs-4 fw-bold text-muted">—</span>
+        </div>
+
+        <!-- Hash display -->
+        <div>
+          <label class="form-label fw-semibold small mb-1">File Hash</label>
+          <div class="d-flex gap-1">
+            <code id="hash-display" class="hash-display flex-grow-1 p-2 rounded bg-light small text-break">—</code>
+            <button class="btn btn-sm btn-outline-secondary" id="btn-toggle-hash" title="Toggle hex/binary">01</button>
+          </div>
+        </div>
+
+        <!-- Sig info -->
+        <div id="sig-info-block" class="d-none">
+          <label class="form-label fw-semibold small mb-1">Signature Info</label>
+          <table class="table table-sm table-bordered mb-0 small">
+            <tr><td class="text-muted">Algorithm</td><td id="si-algo">—</td></tr>
+            <tr><td class="text-muted">Key Size</td><td id="si-keysize">—</td></tr>
+            <tr><td class="text-muted">Signer</td><td id="si-signer">—</td></tr>
+          </table>
+        </div>
+
+        <!-- Tamper details -->
+        <div id="tamper-details-block" class="d-none">
+          <label class="form-label fw-semibold small mb-1 text-warning"><i class="bi bi-bug-fill me-1"></i>Tamper Details</label>
+          <table class="table table-sm table-bordered mb-0 small">
+            <tr><td class="text-muted">Byte Position</td><td id="td-pos">—</td></tr>
+            <tr><td class="text-muted">Original (hex)</td><td id="td-orig" class="text-success">—</td></tr>
+            <tr><td class="text-muted">Tampered (hex)</td><td id="td-new" class="text-danger">—</td></tr>
+          </table>
+        </div>
+
+        <!-- Download sig -->
+        <div id="download-sig-block" class="d-none">
+          <a id="download-sig-link" class="btn btn-outline-primary btn-sm w-100" href="#" target="_blank">
+            <i class="bi bi-download me-1"></i>Download .sig File
+          </a>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Compare Modal ──────────────────────────────────────────── -->
+<div class="modal fade" id="compareModal" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header bg-info text-white">
+        <h5 class="modal-title"><i class="bi bi-columns-gap me-2"></i>Compare Two Files</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div class="row g-3">
+          <div class="col-6">
+            <label class="form-label">File 1</label>
+            <input type="file" id="cmp-file1" class="form-control form-control-sm" />
+          </div>
+          <div class="col-6">
+            <label class="form-label">File 2</label>
+            <input type="file" id="cmp-file2" class="form-control form-control-sm" />
+          </div>
+        </div>
+        <div id="cmp-result" class="mt-3 d-none">
+          <div class="row g-2">
+            <div class="col-6"><label class="small text-muted">Hash 1</label><br/><code id="cmp-hash1" class="text-break small"></code></div>
+            <div class="col-6"><label class="small text-muted">Hash 2</label><br/><code id="cmp-hash2" class="text-break small"></code></div>
+          </div>
+          <div class="mt-2 small">
+            Differing bytes: <strong id="cmp-diff-bytes"></strong> |
+            Hamming distance: <strong id="cmp-hamming"></strong>
+          </div>
+          <div id="cmp-avalanche-grid" class="avalanche-grid mt-3"></div>
+          <div class="small text-center mt-1">Avalanche: <strong id="cmp-flip-pct"></strong>% bits flipped</div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-info text-white" id="btn-run-compare">
+          <i class="bi bi-play-fill me-1"></i>Compare
+        </button>
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+{% endblock %}

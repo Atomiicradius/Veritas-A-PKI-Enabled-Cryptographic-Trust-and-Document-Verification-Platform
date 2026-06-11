@@ -1,0 +1,459 @@
+import os
+import json
+import uuid
+import shutil
+
+from flask import Flask, request, jsonify, render_template, send_from_directory
+
+from crypto.keygen import generate_keys, save_keys, load_private_key, load_public_key
+from crypto.hasher import compute_hash
+from crypto.signer import sign_document
+from crypto.verifier import verify_document
+from analysis.avalanche import compute_avalanche_from_bytes
+from analysis.attack_sim import get_security_levels, tamper_file
+from audit.logger import init_db, log_operation, get_all_logs
+
+# ── New v2 modules (additive – do not remove existing imports) ────────────────
+from crypto.certificate import (
+    generate_ca_keys, issue_certificate, verify_certificate,
+    load_certificate, revoke_certificate, is_revoked, CERTS_DIR,
+)
+from crypto.timestamp import generate_tsa_keys, create_timestamp, verify_timestamp
+from analysis.merkle import generate_root_hash, verify_merkle_tree
+
+BASE_DIR = os.path.dirname(__file__)
+KEYS_DIR = os.path.join(BASE_DIR, "keys")
+UPLOADS_DIR = os.path.join(BASE_DIR, "uploads")
+SIGS_DIR = os.path.join(BASE_DIR, "signatures")
+# CERTS_DIR is imported from crypto.certificate
+
+app = Flask(__name__)
+app.config["MAX_CONTENT_LENGTH"] = 50 * 1024 * 1024  # 50 MB
+
+
+def _ensure_dirs():
+    for d in [KEYS_DIR, UPLOADS_DIR, SIGS_DIR, CERTS_DIR]:
+        os.makedirs(d, exist_ok=True)
+
+
+def _ensure_keys():
+    for user, size in [("userA", 2048), ("userB", 2048)]:
+        if not os.path.exists(os.path.join(KEYS_DIR, f"{user}_private.pem")):
+            priv, pub = generate_keys(size)
+            save_keys(priv, pub, user, KEYS_DIR)
+
+
+def _ensure_ca_and_tsa():
+    """Pre-generate CA and TSA key-pairs on startup (idempotent)."""
+    generate_ca_keys()
+    generate_tsa_keys()
+
+
+def _save_upload(file_obj) -> str:
+    filename = f"{uuid.uuid4().hex}_{file_obj.filename}"
+    path = os.path.join(UPLOADS_DIR, filename)
+    file_obj.save(path)
+    return path
+
+
+# ── Routes ──────────────────────────────────────────────────────────────────
+
+@app.route("/")
+def dashboard():
+    return render_template("dashboard.html")
+
+
+@app.route("/analysis")
+def analysis_page():
+    return render_template("analysis.html")
+
+
+@app.route("/audit")
+def audit_page():
+    logs = get_all_logs()
+    return render_template("audit.html", logs=logs)
+
+
+@app.route("/api/sign", methods=["POST"])
+def api_sign():
+    file = request.files.get("file")
+    user = request.form.get("user", "userA")
+    key_size = int(request.form.get("key_size", 2048))
+    hash_algo = request.form.get("hash_algo", "SHA-256")
+
+    if not file:
+        return jsonify({"error": "No file provided"}), 400
+
+    path = _save_upload(file)
+    try:
+        if key_size not in (1024, 2048):
+            return jsonify({"error": "Only 1024 or 2048-bit keys for signing"}), 400
+
+        stored_size = _get_stored_key_size(user)
+        if stored_size != key_size:
+            priv, pub = generate_keys(key_size)
+            save_keys(priv, pub, user, KEYS_DIR)
+        else:
+            priv = load_private_key(user, KEYS_DIR)
+            pub  = load_public_key(user, KEYS_DIR)
+
+        file_hash = compute_hash(path, hash_algo.lower().replace("-", ""))
+        sig_dict  = sign_document(path, priv, user, hash_algo)
+        sig_dict["original_filename"] = file.filename
+
+        # ── v2: PKI certificate ──────────────────────────────────────────
+        cert     = issue_certificate(user, pub)
+        cert_id  = cert["cert_id"]
+        sig_dict["cert_id"] = cert_id
+
+        # ── v2: TSA timestamp ────────────────────────────────────────────
+        tsa_token = create_timestamp(file_hash)
+        sig_dict["tsa_token"] = tsa_token
+
+        # ── v2: Merkle root ──────────────────────────────────────────────
+        with open(path, "rb") as fh:
+            file_data = fh.read()
+        merkle_info = generate_root_hash(file_data)
+        sig_dict["merkle_root"]  = merkle_info["merkle_root"]
+        sig_dict["chunk_count"]  = merkle_info["chunk_count"]
+
+        sig_id   = uuid.uuid4().hex
+        sig_path = os.path.join(SIGS_DIR, f"{sig_id}.sig")
+        with open(sig_path, "w") as fh:
+            json.dump(sig_dict, fh, indent=2)
+
+        log_operation(
+            "SIGN", file.filename, file_hash, user, key_size, "SUCCESS",
+            certificate_id=cert_id,
+            certificate_status="ISSUED",
+            timestamp_status="OK",
+            merkle_root=merkle_info["merkle_root"],
+        )
+
+        return jsonify({
+            "status":      "signed",
+            "sig_id":      sig_id,
+            "file_hash":   file_hash,
+            "sig_info":    sig_dict,
+            "pipeline":    _build_pipeline("sign", file_hash, sig_dict, None),
+            # v2 extras
+            "certificate":       cert,
+            "tsa_token":         tsa_token,
+            "merkle_root":       merkle_info["merkle_root"],
+            "chunk_count":       merkle_info["chunk_count"],
+        })
+    except Exception as e:
+        log_operation("SIGN", file.filename, "", user, key_size, "ERROR", str(e))
+        return jsonify({"error": str(e)}), 500
+    finally:
+        if os.path.exists(path):
+            os.unlink(path)
+
+
+@app.route("/api/verify", methods=["POST"])
+def api_verify():
+    file = request.files.get("file")
+    sig_file = request.files.get("sig_file")
+    sig_id = request.form.get("sig_id")
+    verifier_user = request.form.get("verifier_user", "userA")
+    hash_algo = request.form.get("hash_algo", "SHA-256")
+
+    if not file:
+        return jsonify({"error": "No file provided"}), 400
+
+    path = _save_upload(file)
+    sig_path = None
+    try:
+        if sig_file:
+            sig_path = _save_upload(sig_file)
+            with open(sig_path) as fh:
+                sig_dict = json.load(fh)
+        elif sig_id:
+            stored = os.path.join(SIGS_DIR, f"{sig_id}.sig")
+            if not os.path.exists(stored):
+                return jsonify({"error": "Signature not found"}), 404
+            with open(stored) as fh:
+                sig_dict = json.load(fh)
+        else:
+            return jsonify({"error": "No signature provided"}), 400
+
+        pub = load_public_key(verifier_user, KEYS_DIR)
+        file_hash = compute_hash(path, hash_algo.lower().replace("-", ""))
+        valid = verify_document(path, sig_dict, pub)
+        result = "VALID" if valid else "INVALID"
+
+        # ── v2: certificate check ────────────────────────────────────────
+        cert_result   = {"certificate_valid": None}
+        cert_meta     = None
+        cert_id       = sig_dict.get("cert_id", "")
+        if cert_id:
+            cert_meta = load_certificate(cert_id)
+            if cert_meta:
+                cert_result = verify_certificate(cert_meta)
+                if not cert_result["certificate_valid"]:
+                    valid  = False
+                    result = "INVALID"
+
+        # ── v2: TSA check ──────────────────────────────────────────────
+        tsa_result = {"timestamp_valid": None, "timestamp": None, "reason": None}
+        tsa_token  = sig_dict.get("tsa_token")
+        if tsa_token:
+            tsa_result = verify_timestamp(tsa_token)
+
+        # ── v2: Merkle check ─────────────────────────────────────────────
+        merkle_verify = {}
+        stored_root   = sig_dict.get("merkle_root")
+        if stored_root:
+            with open(path, "rb") as fh:
+                current_data = fh.read()
+            current_merkle = generate_root_hash(current_data)
+            merkle_verify  = {
+                "stored_root":    stored_root,
+                "current_root":   current_merkle["merkle_root"],
+                "merkle_matches": stored_root == current_merkle["merkle_root"],
+                "chunk_count":    current_merkle["chunk_count"],
+            }
+
+        cert_status_str = "OK" if cert_result.get("certificate_valid") else (
+            cert_result.get("reason") or "NOT_CHECKED"
+        )
+        tsa_status_str  = "OK" if tsa_result.get("timestamp_valid")  else (
+            tsa_result.get("reason")  or "NOT_CHECKED"
+        )
+
+        log_operation(
+            "VERIFY", file.filename, file_hash,
+            sig_dict.get("signer", "?"), sig_dict.get("key_size", 0),
+            result, f"verifier={verifier_user}",
+            certificate_id=cert_id,
+            certificate_status=cert_status_str,
+            timestamp_status=tsa_status_str,
+            merkle_root=sig_dict.get("merkle_root", ""),
+        )
+
+        return jsonify({
+            # original fields (unchanged)
+            "status":       result,
+            "valid":        valid,
+            "file_hash":    file_hash,
+            "sig_info":     sig_dict,
+            "pipeline":     _build_pipeline("verify", file_hash, sig_dict, valid),
+            # v2 extras
+            "certificate_valid": cert_result.get("certificate_valid"),
+            "certificate":       cert_meta,
+            "cert_result":       cert_result,
+            "timestamp_valid":   tsa_result.get("timestamp_valid"),
+            "tsa_result":        tsa_result,
+            "merkle_verify":     merkle_verify,
+        })
+    except Exception as e:
+        log_operation("VERIFY", file.filename, "", verifier_user, 0, "ERROR", str(e))
+        return jsonify({"error": str(e)}), 500
+    finally:
+        if os.path.exists(path):
+            os.unlink(path)
+        if sig_path and os.path.exists(sig_path):
+            os.unlink(sig_path)
+
+
+@app.route("/api/tamper", methods=["POST"])
+def api_tamper():
+    file = request.files.get("file")
+    sig_id = request.form.get("sig_id")
+    verifier_user = request.form.get("verifier_user", "userA")
+
+    if not file:
+        return jsonify({"error": "No file provided"}), 400
+
+    path = _save_upload(file)
+    try:
+        with open(path, "rb") as f:
+            orig_data = f.read()
+
+        tamper_info = tamper_file(path)
+
+        with open(path, "rb") as f:
+            tampered_data = f.read()
+
+        avalanche = compute_avalanche_from_bytes(orig_data, tampered_data)
+
+        result = {"tamper_info": tamper_info, "avalanche": avalanche}
+
+        if sig_id:
+            stored = os.path.join(SIGS_DIR, f"{sig_id}.sig")
+            if os.path.exists(stored):
+                with open(stored) as f:
+                    sig_dict = json.load(f)
+                pub = load_public_key(verifier_user, KEYS_DIR)
+                valid = verify_document(path, sig_dict, pub)
+                file_hash = compute_hash(path, "sha256")
+                result["verify_result"] = "INVALID" if not valid else "VALID"
+                result["file_hash"] = file_hash
+                result["pipeline"] = _build_pipeline("verify", file_hash, sig_dict, valid)
+
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+    finally:
+        if os.path.exists(path):
+            os.unlink(path)
+
+
+@app.route("/api/compare", methods=["POST"])
+def api_compare():
+    file1 = request.files.get("file1")
+    file2 = request.files.get("file2")
+
+    if not file1 or not file2:
+        return jsonify({"error": "Two files required"}), 400
+
+    path1 = _save_upload(file1)
+    path2 = _save_upload(file2)
+    try:
+        with open(path1, "rb") as fh:
+            data1 = fh.read()
+        with open(path2, "rb") as fh:
+            data2 = fh.read()
+
+        hash1 = compute_hash(path1, "sha256")
+        hash2 = compute_hash(path2, "sha256")
+
+        # Byte-level diff (original logic unchanged)
+        diff_positions = [i for i in range(min(len(data1), len(data2))) if data1[i] != data2[i]]
+        hamming = sum(bin(a ^ b).count("1") for a, b in zip(data1, data2))
+
+        avalanche = compute_avalanche_from_bytes(data1, data2)
+
+        # ── v2: Merkle comparison ──────────────────────────────────────────
+        merkle_comparison = verify_merkle_tree(data1, data2)
+
+        return jsonify({
+            # original fields (unchanged)
+            "hash1":               hash1,
+            "hash2":               hash2,
+            "match":              hash1 == hash2,
+            "diff_byte_count":    len(diff_positions),
+            "hamming_distance":   hamming,
+            "first_diff_positions": diff_positions[:20],
+            "avalanche":          avalanche,
+            # v2 extras
+            "merkle": merkle_comparison,
+        })
+    finally:
+        for p in [path1, path2]:
+            if os.path.exists(p):
+                os.unlink(p)
+
+
+@app.route("/api/performance", methods=["POST"])
+def api_performance():
+    mode = request.json.get("mode", "file_size") if request.is_json else "file_size"
+    key_size = int(request.json.get("key_size", 2048)) if request.is_json else 2048
+    try:
+        from analysis.performance import benchmark_by_file_size, benchmark_by_key_size
+        if mode == "key_size":
+            data = benchmark_by_key_size()
+        else:
+            data = benchmark_by_file_size(key_size)
+        return jsonify({"results": data})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/attack_sim")
+def api_attack_sim():
+    return jsonify({"levels": get_security_levels()})
+
+
+@app.route("/api/audit")
+def api_audit():
+    return jsonify({"logs": get_all_logs()})
+
+
+@app.route("/api/download_sig/<sig_id>")
+def download_sig(sig_id):
+    return send_from_directory(SIGS_DIR, f"{sig_id}.sig", as_attachment=True)
+
+
+# ── PKI / Certificate routes (v2 additions) ──────────────────────────────
+
+@app.route("/api/pki/issue", methods=["POST"])
+def api_pki_issue():
+    """Manually issue a certificate for a user's public key."""
+    data = request.get_json(force=True) or {}
+    user = data.get("user", "userA")
+    try:
+        pub = load_public_key(user, KEYS_DIR)
+        cert = issue_certificate(user, pub)
+        return jsonify({"status": "issued", "certificate": cert})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/pki/revoke", methods=["POST"])
+def api_pki_revoke():
+    """Add a cert_id to the Certificate Revocation List."""
+    data = request.get_json(force=True) or {}
+    cert_id = data.get("cert_id", "")
+    if not cert_id:
+        return jsonify({"error": "cert_id required"}), 400
+    revoke_certificate(cert_id)
+    return jsonify({"status": "revoked", "cert_id": cert_id})
+
+
+@app.route("/api/pki/status", methods=["GET"])
+def api_pki_status():
+    """Check the status of a certificate by cert_id."""
+    cert_id = request.args.get("cert_id", "")
+    if not cert_id:
+        return jsonify({"error": "cert_id query param required"}), 400
+    cert = load_certificate(cert_id)
+    if not cert:
+        return jsonify({"error": "Certificate not found"}), 404
+    result = verify_certificate(cert)
+    return jsonify({"certificate": cert, "verification": result})
+
+
+@app.route("/api/pki/crl", methods=["GET"])
+def api_pki_crl():
+    """Return the current Certificate Revocation List."""
+    from crypto.certificate import _load_crl
+    return jsonify({"revoked": _load_crl()})
+
+
+# ── Helpers ──────────────────────────────────────────────────────────────────
+
+def _get_stored_key_size(user: str) -> int:
+    try:
+        priv = load_private_key(user, KEYS_DIR)
+        return priv.key_size
+    except Exception:
+        return 2048
+
+
+def _build_pipeline(operation: str, file_hash: str, sig_dict: dict, valid) -> list:
+    steps = [
+        {"id": "upload", "label": "Document Upload", "value": sig_dict.get("original_filename", "file"), "status": "done"},
+        {"id": "hash", "label": "SHA-256 Hash", "value": file_hash[:32] + "...", "status": "done"},
+    ]
+    if operation == "sign":
+        steps += [
+            {"id": "sign", "label": "RSA-PSS Sign", "value": f"{sig_dict.get('key_size', '?')}-bit key", "status": "done"},
+            {"id": "output", "label": "Signature Output", "value": sig_dict.get("algorithm", "RSA-PSS-SHA256"), "status": "success"},
+        ]
+    else:
+        status = "success" if valid else "failure"
+        steps += [
+            {"id": "sig_hash", "label": "Signature Hash", "value": sig_dict.get("algorithm", "?"), "status": "done"},
+            {"id": "compare", "label": "Hash Comparison", "value": "Match" if valid else "MISMATCH", "status": status},
+            {"id": "result", "label": "Result", "value": "✅ VALID" if valid else "❌ INVALID", "status": status},
+        ]
+    return steps
+
+
+if __name__ == "__main__":
+    _ensure_dirs()
+    _ensure_keys()
+    _ensure_ca_and_tsa()   # v2: pre-generate CA + TSA key-pairs
+    init_db()
+    app.run(debug=True, port=5000)

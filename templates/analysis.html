@@ -1,0 +1,194 @@
+{% extends "base.html" %}
+{% block title %}Analysis — CryptoDAA{% endblock %}
+
+{% block content %}
+<h4 class="mb-3"><i class="bi bi-graph-up-arrow me-2"></i>Performance &amp; Analysis</h4>
+
+<div class="row g-3">
+
+  <!-- Performance by file size -->
+  <div class="col-lg-6">
+    <div class="card shadow-sm">
+      <div class="card-header bg-dark text-white fw-semibold">
+        <i class="bi bi-file-bar-graph me-2"></i>Time vs File Size (2048-bit RSA)
+      </div>
+      <div class="card-body">
+        <button class="btn btn-sm btn-primary mb-3" id="btn-bench-filesize">
+          <i class="bi bi-play-fill me-1"></i>Run Benchmark
+        </button>
+        <div id="bench-fs-status" class="small text-muted mb-2"></div>
+        <canvas id="fileSizeChart" height="220"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- Performance by key size -->
+  <div class="col-lg-6">
+    <div class="card shadow-sm">
+      <div class="card-header bg-dark text-white fw-semibold">
+        <i class="bi bi-key me-2"></i>Time vs Key Size (10 KB file)
+      </div>
+      <div class="card-body">
+        <button class="btn btn-sm btn-primary mb-3" id="btn-bench-keysize">
+          <i class="bi bi-play-fill me-1"></i>Run Benchmark
+        </button>
+        <div id="bench-ks-status" class="small text-muted mb-2"></div>
+        <canvas id="keySizeChart" height="220"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- Avalanche full view -->
+  <div class="col-lg-6">
+    <div class="card shadow-sm">
+      <div class="card-header bg-dark text-white fw-semibold">
+        <i class="bi bi-grid-3x3 me-2"></i>Avalanche Effect — Manual Test
+      </div>
+      <div class="card-body">
+        <div class="row g-2 mb-3">
+          <div class="col-6">
+            <label class="form-label small">Original File</label>
+            <input type="file" id="av-orig-file" class="form-control form-control-sm" />
+          </div>
+          <div class="col-6">
+            <label class="form-label small">Modified File</label>
+            <input type="file" id="av-mod-file" class="form-control form-control-sm" />
+          </div>
+        </div>
+        <button class="btn btn-sm btn-warning mb-3" id="btn-run-avalanche">
+          <i class="bi bi-lightning-fill me-1"></i>Compute Avalanche
+        </button>
+        <div id="av-analysis-result" class="d-none">
+          <div class="mb-2 small">
+            <strong>Original hash:</strong> <code id="av-a-hash1" class="text-break"></code><br/>
+            <strong>Modified hash:</strong> <code id="av-a-hash2" class="text-break"></code>
+          </div>
+          <div id="av-analysis-grid" class="avalanche-grid mb-2"></div>
+          <div class="text-center small">
+            <strong id="av-a-flip-count"></strong> / 256 bits flipped
+            &nbsp;|&nbsp;
+            <span class="text-danger fw-bold" id="av-a-flip-pct"></span>%
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Attack simulation -->
+  <div class="col-lg-6">
+    <div class="card shadow-sm">
+      <div class="card-header bg-dark text-white fw-semibold">
+        <i class="bi bi-shield-exclamation me-2"></i>RSA Key Security Levels
+      </div>
+      <div class="card-body">
+        <button class="btn btn-sm btn-danger mb-3" id="btn-load-attack-analysis">
+          <i class="bi bi-unlock me-1"></i>Load Attack Simulation
+        </button>
+        <div id="attack-analysis-table"></div>
+        <canvas id="securityChart" height="220" class="d-none mt-3"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── v2: PKI / Certificate Status ─────────────────────────────────── -->
+  <div class="col-lg-4">
+    <div class="card shadow-sm border-primary">
+      <div class="card-header bg-primary text-white fw-semibold">
+        <i class="bi bi-patch-check-fill me-2"></i>PKI — Certificate Status
+      </div>
+      <div class="card-body">
+        <p class="small text-muted mb-2">Enter a Certificate ID to inspect its PKI metadata and revocation status.</p>
+        <div class="input-group input-group-sm mb-2">
+          <input type="text" id="pki-cert-id-input" class="form-control" placeholder="Paste cert_id here…" />
+          <button class="btn btn-primary" id="btn-pki-check">Check</button>
+        </div>
+        <div id="pki-status-result" class="d-none">
+          <table class="table table-sm table-bordered small mb-2">
+            <tr><td class="text-muted">Subject</td><td id="pki-subject">—</td></tr>
+            <tr><td class="text-muted">Issuer</td><td id="pki-issuer">—</td></tr>
+            <tr><td class="text-muted">Issued At</td><td id="pki-issued">—</td></tr>
+            <tr><td class="text-muted">Expires At</td><td id="pki-expires">—</td></tr>
+            <tr><td class="text-muted">Revoked</td><td id="pki-revoked">—</td></tr>
+            <tr><td class="text-muted">Valid</td><td id="pki-valid">—</td></tr>
+          </table>
+          <div id="pki-reason-badge"></div>
+        </div>
+        <hr class="my-2"/>
+        <button class="btn btn-sm btn-outline-secondary w-100" id="btn-pki-crl">
+          <i class="bi bi-list-ul me-1"></i>Load Revocation List (CRL)
+        </button>
+        <div id="pki-crl-result" class="small mt-2 d-none">
+          <strong>Revoked cert_ids:</strong>
+          <ul id="pki-crl-list" class="mb-0 ps-3"></ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── v2: TSA / Timestamp Section ──────────────────────────────────── -->
+  <div class="col-lg-4">
+    <div class="card shadow-sm border-success">
+      <div class="card-header bg-success text-white fw-semibold">
+        <i class="bi bi-clock-history me-2"></i>Timestamp Authority (TSA)
+      </div>
+      <div class="card-body">
+        <p class="small text-muted mb-2">After signing a document, the TSA token attached to that signature is displayed here.</p>
+        <div id="tsa-placeholder" class="text-center text-muted py-3">
+          <i class="bi bi-hourglass fs-3"></i>
+          <p class="small mt-1">Sign a document to generate a TSA token.</p>
+        </div>
+        <div id="tsa-info" class="d-none">
+          <table class="table table-sm table-bordered small mb-0">
+            <tr><td class="text-muted">Signing Time</td><td id="tsa-timestamp">—</td></tr>
+            <tr><td class="text-muted">TSA Name</td><td id="tsa-name">—</td></tr>
+            <tr><td class="text-muted">Hash Covered</td><td><code id="tsa-hash" class="text-break" style="font-size:0.65rem"></code></td></tr>
+            <tr><td class="text-muted">Token Valid</td><td id="tsa-valid">—</td></tr>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── v2: Merkle Tree Section ───────────────────────────────────────── -->
+  <div class="col-lg-4">
+    <div class="card shadow-sm border-warning">
+      <div class="card-header bg-warning text-dark fw-semibold">
+        <i class="bi bi-diagram-2-fill me-2"></i>Merkle Tree Integrity
+      </div>
+      <div class="card-body">
+        <p class="small text-muted mb-2">Upload two files to compare their Merkle trees for chunk-level mismatch detection.</p>
+        <div class="row g-2 mb-2">
+          <div class="col-6">
+            <label class="form-label small">Original File</label>
+            <input type="file" id="merkle-file1" class="form-control form-control-sm" />
+          </div>
+          <div class="col-6">
+            <label class="form-label small">Modified File</label>
+            <input type="file" id="merkle-file2" class="form-control form-control-sm" />
+          </div>
+        </div>
+        <button class="btn btn-sm btn-warning mb-2 w-100" id="btn-merkle-compare">
+          <i class="bi bi-diagram-2 me-1"></i>Compare Merkle Trees
+        </button>
+        <div id="merkle-result" class="d-none">
+          <table class="table table-sm table-bordered small mb-2">
+            <tr><td class="text-muted">Original Root</td><td><code id="merkle-orig-root" class="text-break" style="font-size:0.65rem"></code></td></tr>
+            <tr><td class="text-muted">Modified Root</td><td><code id="merkle-mod-root" class="text-break" style="font-size:0.65rem"></code></td></tr>
+            <tr><td class="text-muted">Roots Match</td><td id="merkle-match">—</td></tr>
+            <tr><td class="text-muted">Orig Chunks</td><td id="merkle-orig-chunks">—</td></tr>
+            <tr><td class="text-muted">Mod Chunks</td><td id="merkle-mod-chunks">—</td></tr>
+            <tr><td class="text-muted">Mismatched Chunks</td><td id="merkle-mismatch-count">—</td></tr>
+          </table>
+          <canvas id="merkleChart" height="120"></canvas>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/analysis.js') }}"></script>
+{% endblock %}
+

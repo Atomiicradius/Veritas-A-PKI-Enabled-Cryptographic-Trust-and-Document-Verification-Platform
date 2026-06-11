@@ -1,0 +1,122 @@
+/* ── Base ─────────────────────────────────────────────────────────── */
+body { background: #f0f2f5; font-size: 0.9rem; }
+
+/* ── Drop Zone ───────────────────────────────────────────────────── */
+.drop-zone {
+  border: 2px dashed #6c757d;
+  background: #f8f9fa;
+  cursor: pointer;
+  transition: border-color 0.2s, background 0.2s;
+  min-height: 100px;
+}
+.drop-zone.dragover {
+  border-color: #0d6efd;
+  background: #e8f0fe;
+}
+
+/* ── Pipeline ────────────────────────────────────────────────────── */
+.pipeline-container { overflow-x: auto; }
+
+.pipeline {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  flex-wrap: nowrap;
+  padding: 12px 4px;
+}
+
+.pipeline-step {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 100px;
+  max-width: 120px;
+  text-align: center;
+  position: relative;
+}
+
+.pipeline-step .step-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.2rem;
+  border: 2px solid #dee2e6;
+  background: #fff;
+  transition: all 0.3s;
+}
+
+.pipeline-step.done .step-icon   { border-color: #0d6efd; background: #e7f0ff; color: #0d6efd; }
+.pipeline-step.success .step-icon { border-color: #198754; background: #d1f0e0; color: #198754; }
+.pipeline-step.failure .step-icon { border-color: #dc3545; background: #fde8ea; color: #dc3545; }
+.pipeline-step.pending .step-icon { border-color: #adb5bd; background: #f8f9fa; color: #adb5bd; }
+
+.pipeline-step .step-label { font-size: 0.72rem; font-weight: 600; margin-top: 4px; }
+.pipeline-step .step-value { font-size: 0.65rem; color: #6c757d; word-break: break-all; max-width: 110px; }
+
+.pipeline-step.failure .step-label { color: #dc3545; }
+.pipeline-step.success .step-label { color: #198754; }
+
+.pipeline-arrow {
+  font-size: 1.2rem;
+  color: #adb5bd;
+  padding: 0 4px;
+  flex-shrink: 0;
+  margin-bottom: 20px;
+}
+.pipeline-arrow.failure { color: #dc3545; }
+
+/* ── Avalanche Grid ──────────────────────────────────────────────── */
+.avalanche-grid {
+  display: grid;
+  grid-template-columns: repeat(16, 1fr);
+  gap: 2px;
+  max-width: 340px;
+  margin: 0 auto;
+}
+.avalanche-grid .av-cell {
+  aspect-ratio: 1;
+  border-radius: 2px;
+  transition: background 0.2s;
+}
+.avalanche-grid .av-cell.flipped   { background: #dc3545; }
+.avalanche-grid .av-cell.unchanged { background: #198754; }
+
+/* ── Result Badge ────────────────────────────────────────────────── */
+.result-badge {
+  border: 2px solid #dee2e6;
+  background: #f8f9fa;
+  min-height: 70px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s;
+}
+.result-badge.valid   { border-color: #198754; background: #d1f0e0; }
+.result-badge.invalid { border-color: #dc3545; background: #fde8ea; }
+.result-badge.signed  { border-color: #0d6efd; background: #e7f0ff; }
+
+/* ── Hash Display ────────────────────────────────────────────────── */
+.hash-display {
+  font-family: monospace;
+  font-size: 0.72rem;
+  word-break: break-all;
+  min-height: 40px;
+}
+
+/* ── Spinner overlay ─────────────────────────────────────────────── */
+.spinner-overlay {
+  position: absolute; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(255,255,255,0.7);
+  z-index: 10;
+  border-radius: 4px;
+}
+
+/* ── Security table ──────────────────────────────────────────────── */
+.security-table td, .security-table th { vertical-align: middle; font-size: 0.82rem; }
+
+/* ── Navbar active link ──────────────────────────────────────────── */
+.navbar .nav-link.active { border-bottom: 2px solid #fff; }
