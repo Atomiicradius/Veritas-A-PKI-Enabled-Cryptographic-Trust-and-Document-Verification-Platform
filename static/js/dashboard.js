@@ -23,13 +23,13 @@ fileInput.addEventListener("change", () => { if (fileInput.files[0]) setFile(fil
 function setFile(f) {
   uploadedFile = f;
   fileNameDiv.textContent = f.name + " (" + (f.size / 1024).toFixed(1) + " KB)";
-  fileNameDiv.className = "mt-2 small text-success fw-bold";
+  fileNameDiv.style.color = "var(--ok)";
 }
 
 /* ── Show/hide verifier block ────────────────────────────────────── */
 document.getElementById("btn-verify").addEventListener("click", () => {
-  document.getElementById("verifier-block").classList.remove("d-none");
-  document.getElementById("sig-upload-block").classList.remove("d-none");
+  document.getElementById("verifier-block").style.display = "";
+  document.getElementById("sig-upload-block").style.display = "";
 });
 
 /* ── Sign ────────────────────────────────────────────────────────── */
@@ -124,8 +124,8 @@ document.getElementById("btn-tamper").addEventListener("click", async () => {
 
     if (data.avalanche) {
       showAvalancheTab(data.avalanche);
-      // Switch to avalanche tab automatically
-      document.querySelector('[href="#tab-avalanche"]').click();
+      // Switch to avalanche tab
+      document.querySelector('[data-target="#tab-avalanche"]').click();
     }
 
     if (data.verify_result) {
@@ -162,7 +162,7 @@ document.getElementById("btn-run-compare").addEventListener("click", async () =>
     document.getElementById("cmp-hamming").textContent = data.hamming_distance;
     document.getElementById("cmp-flip-pct").textContent = data.avalanche.flip_percent;
     renderAvalancheGrid("cmp-avalanche-grid", data.avalanche.cells);
-    document.getElementById("cmp-result").classList.remove("d-none");
+    document.getElementById("cmp-result").style.display = "";
   } catch (e) {
     alert("Error: " + e.message);
   }
@@ -223,15 +223,17 @@ document.getElementById("btn-toggle-hash").addEventListener("click", () => {
 /* ── Helpers ─────────────────────────────────────────────────────── */
 function setStatus(msg, type) {
   const bar = document.getElementById("status-bar");
-  bar.className = `alert alert-${type} py-2 small mb-3`;
-  bar.textContent = msg;
-  bar.classList.remove("d-none");
+  bar.className = "status-bar " + (type === "warning" ? "info" : type);
+  // update the text node inside the <span>
+  const span = bar.querySelector("span") || bar;
+  span.textContent = msg;
+  bar.style.display = "flex";
 }
 
 function showResult(cls, label) {
   const badge = document.getElementById("result-badge");
-  badge.className = "result-badge text-center rounded py-3 " + cls;
-  badge.innerHTML = `<span class="fs-5 fw-bold">${label}</span>`;
+  badge.className = "result-badge " + cls;
+  badge.innerHTML = `<span class="rb-label">Status</span><span class="rb-value">${label}</span>`;
 }
 
 function showHashDisplay(hex) {
@@ -241,14 +243,14 @@ function showHashDisplay(hex) {
 }
 
 function showSigInfo(info) {
-  document.getElementById("sig-info-block").classList.remove("d-none");
+  document.getElementById("sig-info-block").style.display = "";
   document.getElementById("si-algo").textContent    = info.algorithm || "—";
   document.getElementById("si-keysize").textContent = (info.key_size || "—") + (info.key_size ? "-bit" : "");
   document.getElementById("si-signer").textContent  = info.signer || "—";
 }
 
 function showTamperDetails(info) {
-  document.getElementById("tamper-details-block").classList.remove("d-none");
+  document.getElementById("tamper-details-block").style.display = "";
   document.getElementById("td-pos").textContent  = info.position;
   document.getElementById("td-orig").textContent = "0x" + info.original_hex;
   document.getElementById("td-new").textContent  = "0x" + info.new_hex;
@@ -256,16 +258,16 @@ function showTamperDetails(info) {
 
 function showDownloadLink(sigId) {
   const block = document.getElementById("download-sig-block");
-  block.classList.remove("d-none");
+  block.style.display = "";
   document.getElementById("download-sig-link").href = "/api/download_sig/" + sigId;
 }
 
 function showAvalancheTab(av) {
-  document.getElementById("avalanche-placeholder").classList.add("d-none");
+  document.getElementById("avalanche-placeholder").style.display = "none";
   const res = document.getElementById("avalanche-result");
-  res.classList.remove("d-none");
-  document.getElementById("av-hash1").textContent     = av.original_hash;
-  document.getElementById("av-hash2").textContent     = av.modified_hash;
+  res.style.display = "";
+  document.getElementById("av-hash1").textContent      = av.original_hash;
+  document.getElementById("av-hash2").textContent      = av.modified_hash;
   document.getElementById("av-flip-count").textContent = av.flip_count;
   document.getElementById("av-flip-pct").textContent   = av.flip_percent;
   renderAvalancheGrid("avalanche-grid", av.cells);

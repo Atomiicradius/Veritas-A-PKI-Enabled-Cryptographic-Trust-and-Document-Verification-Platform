@@ -1,248 +1,311 @@
 {% extends "base.html" %}
-{% block title %}Dashboard — CryptoDAA{% endblock %}
+{% block title %}Dashboard — Veritas{% endblock %}
 
 {% block content %}
-<div class="row g-3">
+<div style="display:grid; grid-template-columns: 280px 1fr 300px; gap: 20px; align-items: start;">
 
-  <!-- ── LEFT PANEL ──────────────────────────────────────────────── -->
-  <div class="col-lg-3">
-    <div class="card h-100 shadow-sm">
-      <div class="card-header bg-dark text-white fw-bold"><i class="bi bi-upload me-2"></i>Document & Settings</div>
-      <div class="card-body d-flex flex-column gap-3">
-
-        <!-- Drag-drop upload -->
-        <div id="drop-zone" class="drop-zone rounded border-dashed text-center p-3">
-          <i class="bi bi-file-earmark-arrow-up fs-2 text-secondary"></i>
-          <p class="mb-1 small text-muted">Drag &amp; drop file here</p>
-          <label class="btn btn-sm btn-outline-primary mt-1">
-            Browse <input type="file" id="file-input" hidden />
-          </label>
-          <div id="file-name" class="mt-2 small text-success fw-bold"></div>
-        </div>
-
-        <!-- User select -->
-        <div>
-          <label class="form-label fw-semibold">User (Signer / Verifier)</label>
-          <select id="user-select" class="form-select form-select-sm">
-            <option value="userA">User A</option>
-            <option value="userB">User B</option>
-          </select>
-        </div>
-
-        <!-- Key size -->
-        <div>
-          <label class="form-label fw-semibold">Key Size</label>
-          <div class="btn-group w-100" role="group">
-            <input type="radio" class="btn-check" name="key-size" id="ks-1024" value="1024" />
-            <label class="btn btn-outline-secondary btn-sm" for="ks-1024">1024-bit</label>
-            <input type="radio" class="btn-check" name="key-size" id="ks-2048" value="2048" checked />
-            <label class="btn btn-outline-primary btn-sm" for="ks-2048">2048-bit</label>
-          </div>
-        </div>
-
-        <!-- Hash algo -->
-        <div>
-          <label class="form-label fw-semibold">Hash Algorithm</label>
-          <div class="btn-group w-100" role="group">
-            <input type="radio" class="btn-check" name="hash-algo" id="ha-256" value="SHA-256" checked />
-            <label class="btn btn-outline-primary btn-sm" for="ha-256">SHA-256</label>
-            <input type="radio" class="btn-check" name="hash-algo" id="ha-512" value="SHA-512" />
-            <label class="btn btn-outline-secondary btn-sm" for="ha-512">SHA-512</label>
-          </div>
-        </div>
-
-        <hr class="my-1" />
-
-        <!-- Action buttons -->
-        <div class="d-grid gap-2">
-          <button id="btn-sign" class="btn btn-primary btn-sm"><i class="bi bi-pen-fill me-1"></i>Sign Document</button>
-          <button id="btn-verify" class="btn btn-success btn-sm"><i class="bi bi-shield-check me-1"></i>Verify Document</button>
-          <button id="btn-tamper" class="btn btn-warning btn-sm"><i class="bi bi-bug-fill me-1"></i>Tamper &amp; Verify</button>
-          <button id="btn-compare" class="btn btn-info btn-sm text-white" data-bs-toggle="modal" data-bs-target="#compareModal">
-            <i class="bi bi-columns-gap me-1"></i>Compare Mode
-          </button>
-        </div>
-
-        <!-- Verifier user (for verify) -->
-        <div id="verifier-block" class="d-none">
-          <label class="form-label fw-semibold small">Verifier's Public Key</label>
-          <select id="verifier-user-select" class="form-select form-select-sm">
-            <option value="userA">User A</option>
-            <option value="userB">User B</option>
-          </select>
-        </div>
-
-        <!-- Sig upload for verify -->
-        <div id="sig-upload-block" class="d-none">
-          <label class="form-label fw-semibold small">Upload .sig file</label>
-          <input type="file" id="sig-file-input" class="form-control form-control-sm" accept=".sig,.json" />
-        </div>
-
-      </div>
+  <!-- ── LEFT: Document Operations ──────────────────────────────────────── -->
+  <div class="v-card" style="position:sticky; top:76px;">
+    <div class="v-card-header">
+      <svg class="v-card-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+      <span class="v-card-title">Document Operations</span>
     </div>
-  </div>
+    <div class="v-card-body gap">
 
-  <!-- ── CENTER PANEL ────────────────────────────────────────────── -->
-  <div class="col-lg-6">
-    <div class="card h-100 shadow-sm">
-      <div class="card-header bg-dark text-white fw-bold"><i class="bi bi-diagram-3-fill me-2"></i>Cryptographic Pipeline</div>
-      <div class="card-body">
+      <!-- Drop zone -->
+      <div id="drop-zone" class="drop-zone">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+        <p class="dz-title">Drop file here</p>
+        <p class="dz-hint">Any file up to 50 MB</p>
+        <label class="v-browse-btn">
+          Browse <input type="file" id="file-input" hidden />
+        </label>
+        <div id="file-name" style="margin-top:8px; font-size:.75rem; color:var(--ok); font-weight:600;"></div>
+      </div>
 
-        <!-- Status bar -->
-        <div id="status-bar" class="alert alert-secondary py-2 small mb-3 d-none" role="alert"></div>
+      <!-- User select -->
+      <div>
+        <label class="v-label" for="user-select">Identity</label>
+        <select id="user-select" class="v-input v-select">
+          <option value="userA">User A</option>
+          <option value="userB">User B</option>
+        </select>
+      </div>
 
-        <!-- Pipeline diagram -->
-        <div id="pipeline-container" class="pipeline-container mb-3">
-          <div class="pipeline-idle text-center text-muted py-5">
-            <i class="bi bi-hourglass fs-1"></i>
-            <p class="mt-2">Upload a file and click Sign or Verify to see the pipeline.</p>
-          </div>
-        </div>
-
-        <!-- Bottom tabs -->
-        <ul class="nav nav-tabs" id="bottomTabs">
-          <li class="nav-item"><a class="nav-link active" data-bs-toggle="tab" href="#tab-perf"><i class="bi bi-graph-up me-1"></i>Performance</a></li>
-          <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tab-avalanche"><i class="bi bi-grid-3x3 me-1"></i>Avalanche</a></li>
-          <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tab-attack"><i class="bi bi-shield-exclamation me-1"></i>Attacks</a></li>
-        </ul>
-
-        <div class="tab-content border border-top-0 rounded-bottom p-3" style="min-height:260px">
-
-          <!-- Performance tab -->
-          <div class="tab-pane fade show active" id="tab-perf">
-            <div class="d-flex justify-content-between align-items-center mb-2">
-              <span class="small fw-semibold">Benchmark Mode:</span>
-              <div class="btn-group btn-group-sm">
-                <button class="btn btn-outline-primary active" id="bench-filesize">File Size</button>
-                <button class="btn btn-outline-primary" id="bench-keysize">Key Size</button>
-              </div>
-              <button class="btn btn-sm btn-secondary" id="btn-run-bench"><i class="bi bi-play-fill me-1"></i>Run</button>
-            </div>
-            <canvas id="perfChart" height="180"></canvas>
-          </div>
-
-          <!-- Avalanche tab -->
-          <div class="tab-pane fade" id="tab-avalanche">
-            <div id="avalanche-placeholder" class="text-center text-muted py-4">
-              <i class="bi bi-grid-3x3 fs-2"></i>
-              <p class="small mt-2">Run Tamper or Compare to see the avalanche heatmap.</p>
-            </div>
-            <div id="avalanche-result" class="d-none">
-              <div class="d-flex justify-content-between mb-1">
-                <small>Original: <code id="av-hash1" class="text-break"></code></small>
-              </div>
-              <div class="d-flex justify-content-between mb-2">
-                <small>Modified: <code id="av-hash2" class="text-break"></code></small>
-              </div>
-              <div id="avalanche-grid" class="avalanche-grid mb-2"></div>
-              <div class="small text-center">
-                Flipped bits: <strong id="av-flip-count"></strong> / 256
-                (<span id="av-flip-pct" class="text-danger fw-bold"></span>%)
-              </div>
-            </div>
-          </div>
-
-          <!-- Attack sim tab -->
-          <div class="tab-pane fade" id="tab-attack">
-            <div id="attack-table" class="text-center text-muted py-3">
-              <button class="btn btn-sm btn-outline-danger" id="btn-load-attack"><i class="bi bi-shield-exclamation me-1"></i>Load Security Analysis</button>
-            </div>
-          </div>
-
+      <!-- Key size -->
+      <div>
+        <label class="v-label">Key Size</label>
+        <div class="v-toggle-group">
+          <input type="radio" name="key-size" id="ks-1024" value="1024" />
+          <label class="v-toggle-btn" for="ks-1024">1024-bit</label>
+          <input type="radio" name="key-size" id="ks-2048" value="2048" checked />
+          <label class="v-toggle-btn" for="ks-2048">2048-bit</label>
         </div>
       </div>
-    </div>
-  </div>
 
-  <!-- ── RIGHT PANEL ─────────────────────────────────────────────── -->
-  <div class="col-lg-3">
-    <div class="card h-100 shadow-sm">
-      <div class="card-header bg-dark text-white fw-bold"><i class="bi bi-info-circle-fill me-2"></i>Result &amp; Details</div>
-      <div class="card-body d-flex flex-column gap-3">
-
-        <!-- Result badge -->
-        <div id="result-badge" class="result-badge text-center rounded py-3">
-          <span class="fs-4 fw-bold text-muted">—</span>
-        </div>
-
-        <!-- Hash display -->
-        <div>
-          <label class="form-label fw-semibold small mb-1">File Hash</label>
-          <div class="d-flex gap-1">
-            <code id="hash-display" class="hash-display flex-grow-1 p-2 rounded bg-light small text-break">—</code>
-            <button class="btn btn-sm btn-outline-secondary" id="btn-toggle-hash" title="Toggle hex/binary">01</button>
-          </div>
-        </div>
-
-        <!-- Sig info -->
-        <div id="sig-info-block" class="d-none">
-          <label class="form-label fw-semibold small mb-1">Signature Info</label>
-          <table class="table table-sm table-bordered mb-0 small">
-            <tr><td class="text-muted">Algorithm</td><td id="si-algo">—</td></tr>
-            <tr><td class="text-muted">Key Size</td><td id="si-keysize">—</td></tr>
-            <tr><td class="text-muted">Signer</td><td id="si-signer">—</td></tr>
-          </table>
-        </div>
-
-        <!-- Tamper details -->
-        <div id="tamper-details-block" class="d-none">
-          <label class="form-label fw-semibold small mb-1 text-warning"><i class="bi bi-bug-fill me-1"></i>Tamper Details</label>
-          <table class="table table-sm table-bordered mb-0 small">
-            <tr><td class="text-muted">Byte Position</td><td id="td-pos">—</td></tr>
-            <tr><td class="text-muted">Original (hex)</td><td id="td-orig" class="text-success">—</td></tr>
-            <tr><td class="text-muted">Tampered (hex)</td><td id="td-new" class="text-danger">—</td></tr>
-          </table>
-        </div>
-
-        <!-- Download sig -->
-        <div id="download-sig-block" class="d-none">
-          <a id="download-sig-link" class="btn btn-outline-primary btn-sm w-100" href="#" target="_blank">
-            <i class="bi bi-download me-1"></i>Download .sig File
-          </a>
-        </div>
-
-      </div>
-    </div>
-  </div>
-</div>
-
-<!-- ── Compare Modal ──────────────────────────────────────────── -->
-<div class="modal fade" id="compareModal" tabindex="-1">
-  <div class="modal-dialog modal-lg">
-    <div class="modal-content">
-      <div class="modal-header bg-info text-white">
-        <h5 class="modal-title"><i class="bi bi-columns-gap me-2"></i>Compare Two Files</h5>
-        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-      </div>
-      <div class="modal-body">
-        <div class="row g-3">
-          <div class="col-6">
-            <label class="form-label">File 1</label>
-            <input type="file" id="cmp-file1" class="form-control form-control-sm" />
-          </div>
-          <div class="col-6">
-            <label class="form-label">File 2</label>
-            <input type="file" id="cmp-file2" class="form-control form-control-sm" />
-          </div>
-        </div>
-        <div id="cmp-result" class="mt-3 d-none">
-          <div class="row g-2">
-            <div class="col-6"><label class="small text-muted">Hash 1</label><br/><code id="cmp-hash1" class="text-break small"></code></div>
-            <div class="col-6"><label class="small text-muted">Hash 2</label><br/><code id="cmp-hash2" class="text-break small"></code></div>
-          </div>
-          <div class="mt-2 small">
-            Differing bytes: <strong id="cmp-diff-bytes"></strong> |
-            Hamming distance: <strong id="cmp-hamming"></strong>
-          </div>
-          <div id="cmp-avalanche-grid" class="avalanche-grid mt-3"></div>
-          <div class="small text-center mt-1">Avalanche: <strong id="cmp-flip-pct"></strong>% bits flipped</div>
+      <!-- Hash algo -->
+      <div>
+        <label class="v-label">Hash Algorithm</label>
+        <div class="v-toggle-group">
+          <input type="radio" name="hash-algo" id="ha-256" value="SHA-256" checked />
+          <label class="v-toggle-btn" for="ha-256">SHA-256</label>
+          <input type="radio" name="hash-algo" id="ha-512" value="SHA-512" />
+          <label class="v-toggle-btn" for="ha-512">SHA-512</label>
         </div>
       </div>
-      <div class="modal-footer">
-        <button type="button" class="btn btn-info text-white" id="btn-run-compare">
-          <i class="bi bi-play-fill me-1"></i>Compare
+
+      <hr class="v-divider" style="margin:4px 0;" />
+
+      <!-- Actions -->
+      <div class="gap-3-col">
+        <button id="btn-sign" class="v-btn v-btn-primary">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+          Sign Document
         </button>
-        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+        <button id="btn-verify" class="v-btn v-btn-ok">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+          Verify Document
+        </button>
+        <button id="btn-tamper" class="v-btn v-btn-warn">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+          Tamper &amp; Verify
+        </button>
+        <button id="btn-compare" class="v-btn v-btn-info" onclick="document.getElementById('compareModal').style.display='flex'">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="18"/><rect x="14" y="3" width="7" height="18"/></svg>
+          Compare Files
+        </button>
+      </div>
+
+      <!-- Verifier block (shown on verify) -->
+      <div id="verifier-block" style="display:none;">
+        <label class="v-label" for="verifier-user-select">Verifier's Public Key</label>
+        <select id="verifier-user-select" class="v-input v-select">
+          <option value="userA">User A</option>
+          <option value="userB">User B</option>
+        </select>
+      </div>
+
+      <!-- Sig upload block (shown on verify) -->
+      <div id="sig-upload-block" style="display:none;">
+        <label class="v-label">Signature File (.sig)</label>
+        <input type="file" id="sig-file-input" class="v-input" accept=".sig,.json" />
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ── CENTER: Trust Pipeline ─────────────────────────────────────────── -->
+  <div class="v-card">
+    <div class="v-card-header">
+      <svg class="v-card-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+      <span class="v-card-title">Trust Pipeline</span>
+    </div>
+    <div class="v-card-body">
+
+      <!-- Status bar -->
+      <div id="status-bar" class="status-bar" style="display:none; margin-bottom:16px;">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        <span></span>
+      </div>
+
+      <!-- Pipeline diagram -->
+      <div id="pipeline-container" class="pipeline-container" style="margin-bottom:20px;">
+        <div class="pipeline-idle">
+          <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          <p>Upload a document and choose an action to begin.</p>
+        </div>
+      </div>
+
+      <!-- Bottom tabs -->
+      <div class="v-tabs" id="bottomTabs">
+        <button class="v-tab active" data-bs-toggle="tab" data-target="#tab-perf">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+          Performance
+        </button>
+        <button class="v-tab" data-target="#tab-avalanche">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="4" height="4"/><rect x="10" y="3" width="4" height="4"/><rect x="17" y="3" width="4" height="4"/><rect x="3" y="10" width="4" height="4"/><rect x="10" y="10" width="4" height="4"/><rect x="17" y="10" width="4" height="4"/><rect x="3" y="17" width="4" height="4"/><rect x="10" y="17" width="4" height="4"/><rect x="17" y="17" width="4" height="4"/></svg>
+          Avalanche
+        </button>
+        <button class="v-tab" data-target="#tab-attack">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+          Security
+        </button>
+      </div>
+
+      <div style="min-height:240px;">
+        <!-- Performance tab -->
+        <div id="tab-perf">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+            <span style="font-size:.8125rem; font-weight:600; color:var(--text-2);">Benchmark Mode</span>
+            <div style="display:flex; gap:8px; align-items:center;">
+              <div style="display:flex; border:1px solid var(--border); border-radius:var(--radius-sm); overflow:hidden;">
+                <button id="bench-filesize" class="v-tab active" style="border-radius:0; border:none; padding:5px 12px;">File Size</button>
+                <button id="bench-keysize" class="v-tab" style="border-radius:0; border:none; border-left:1px solid var(--border); padding:5px 12px;">Key Size</button>
+              </div>
+              <button id="btn-run-bench" class="v-btn v-btn-neutral v-btn-sm">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                Run
+              </button>
+            </div>
+          </div>
+          <canvas id="perfChart" height="180"></canvas>
+        </div>
+
+        <!-- Avalanche tab -->
+        <div id="tab-avalanche" style="display:none;">
+          <div id="avalanche-placeholder" style="text-align:center; padding:32px 0; color:var(--text-3);">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+            <p style="font-size:.8125rem; margin-top:8px;">Run Tamper or Compare to generate the avalanche heatmap.</p>
+          </div>
+          <div id="avalanche-result" style="display:none;">
+            <div style="font-size:.75rem; margin-bottom:8px; color:var(--text-2);">Original: <code id="av-hash1" class="mono"></code></div>
+            <div style="font-size:.75rem; margin-bottom:12px; color:var(--text-2);">Modified: <code id="av-hash2" class="mono"></code></div>
+            <div id="avalanche-grid" class="avalanche-grid" style="margin-bottom:10px;"></div>
+            <div style="text-align:center; font-size:.8125rem; color:var(--text-2);">
+              <strong id="av-flip-count"></strong> / 256 bits flipped &nbsp;&mdash;&nbsp;
+              <span id="av-flip-pct" class="text-err fw-600"></span>%
+            </div>
+          </div>
+        </div>
+
+        <!-- Attack tab -->
+        <div id="tab-attack" style="display:none;">
+          <div id="attack-table" style="text-align:center; padding:32px 0;">
+            <button id="btn-load-attack" class="v-btn v-btn-neutral" style="width:auto; margin:0 auto;">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+              Load Security Analysis
+            </button>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ── RIGHT: Trust Summary ───────────────────────────────────────────── -->
+  <div class="v-card" style="position:sticky; top:76px;">
+    <div class="v-card-header">
+      <svg class="v-card-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+      <span class="v-card-title">Trust Summary</span>
+    </div>
+    <div class="v-card-body gap">
+
+      <!-- Result badge -->
+      <div id="result-badge" class="result-badge">
+        <span class="rb-label">Status</span>
+        <span class="rb-value" style="color:var(--text-3);">—</span>
+      </div>
+
+      <!-- Hash display -->
+      <div>
+        <label class="v-label" style="margin-bottom:6px;">Document Hash</label>
+        <div style="display:flex; gap:6px; align-items:flex-start;">
+          <code id="hash-display" class="hash-display" style="flex:1; background:var(--bg-subtle); padding:8px 10px; border-radius:var(--radius-sm); border:1px solid var(--border);">—</code>
+          <button id="btn-toggle-hash" class="v-btn v-btn-neutral v-btn-sm" style="flex-shrink:0; font-family:'IBM Plex Mono', monospace; font-size:.6875rem;">01</button>
+        </div>
+      </div>
+
+      <!-- Sig info -->
+      <div id="sig-info-block" style="display:none;">
+        <label class="v-label" style="margin-bottom:8px;">Signature Details</label>
+        <table class="meta-table" style="width:100%; border-collapse:collapse;">
+          <tr>
+            <td style="padding:7px 0 7px; border-bottom:1px solid var(--border); color:var(--text-2); font-size:.8125rem; width:45%;">Algorithm</td>
+            <td id="si-algo" style="padding:7px 0 7px; border-bottom:1px solid var(--border); font-size:.8125rem; font-weight:500;"></td>
+          </tr>
+          <tr>
+            <td style="padding:7px 0 7px; border-bottom:1px solid var(--border); color:var(--text-2); font-size:.8125rem;">Key Size</td>
+            <td id="si-keysize" style="padding:7px 0 7px; border-bottom:1px solid var(--border); font-size:.8125rem; font-weight:500;"></td>
+          </tr>
+          <tr>
+            <td style="padding:7px 0; color:var(--text-2); font-size:.8125rem;">Signer</td>
+            <td id="si-signer" style="padding:7px 0; font-size:.8125rem; font-weight:500;"></td>
+          </tr>
+        </table>
+      </div>
+
+      <!-- Tamper details -->
+      <div id="tamper-details-block" style="display:none;">
+        <label class="v-label" style="margin-bottom:8px; color:var(--warn);">Tamper Details</label>
+        <table style="width:100%; border-collapse:collapse;">
+          <tr>
+            <td style="padding:7px 0 7px; border-bottom:1px solid var(--border); color:var(--text-2); font-size:.8125rem; width:45%;">Byte Position</td>
+            <td id="td-pos" style="padding:7px 0 7px; border-bottom:1px solid var(--border); font-size:.8125rem; font-weight:500;"></td>
+          </tr>
+          <tr>
+            <td style="padding:7px 0 7px; border-bottom:1px solid var(--border); color:var(--text-2); font-size:.8125rem;">Original</td>
+            <td id="td-orig" style="padding:7px 0 7px; border-bottom:1px solid var(--border); font-family:monospace; font-size:.8125rem; color:var(--ok);"></td>
+          </tr>
+          <tr>
+            <td style="padding:7px 0; color:var(--text-2); font-size:.8125rem;">Tampered</td>
+            <td id="td-new" style="padding:7px 0; font-family:monospace; font-size:.8125rem; color:var(--err);"></td>
+          </tr>
+        </table>
+      </div>
+
+      <!-- Download -->
+      <div id="download-sig-block" style="display:none;">
+        <a id="download-sig-link" class="v-btn v-btn-neutral" href="#" target="_blank">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          Download Signature File
+        </a>
+      </div>
+
+    </div>
+  </div>
+
+</div><!-- end grid -->
+
+<!-- ── Compare Modal ─────────────────────────────────────────────────────── -->
+<div id="compareModal" style="display:none; position:fixed; inset:0; z-index:500; background:rgba(30,30,30,.45); align-items:center; justify-content:center;">
+  <div class="v-card" style="width:100%; max-width:540px; box-shadow:0 8px 32px rgba(0,0,0,.14);">
+    <div class="v-card-header" style="justify-content:space-between;">
+      <div style="display:flex; align-items:center; gap:9px;">
+        <svg class="v-card-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="18"/><rect x="14" y="3" width="7" height="18"/></svg>
+        <span class="v-card-title">Compare Two Files</span>
+      </div>
+      <button onclick="document.getElementById('compareModal').style.display='none'" style="background:none; border:none; cursor:pointer; color:var(--text-2); padding:2px;">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div class="v-card-body gap">
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+        <div>
+          <label class="v-label">File 1</label>
+          <input type="file" id="cmp-file1" class="v-input" />
+        </div>
+        <div>
+          <label class="v-label">File 2</label>
+          <input type="file" id="cmp-file2" class="v-input" />
+        </div>
+      </div>
+
+      <div id="cmp-result" style="display:none;">
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:10px;">
+          <div>
+            <label class="v-label">Hash 1</label>
+            <code id="cmp-hash1" class="mono" style="word-break:break-all; font-size:.6875rem; display:block;"></code>
+          </div>
+          <div>
+            <label class="v-label">Hash 2</label>
+            <code id="cmp-hash2" class="mono" style="word-break:break-all; font-size:.6875rem; display:block;"></code>
+          </div>
+        </div>
+        <div style="font-size:.8125rem; color:var(--text-2); margin-bottom:10px;">
+          Differing bytes: <strong id="cmp-diff-bytes" style="color:var(--text);"></strong>
+          &nbsp;&mdash;&nbsp;
+          Hamming distance: <strong id="cmp-hamming" style="color:var(--text);"></strong>
+        </div>
+        <div id="cmp-avalanche-grid" class="avalanche-grid" style="margin-bottom:8px;"></div>
+        <div style="text-align:center; font-size:.8125rem; color:var(--text-2);">Avalanche: <strong id="cmp-flip-pct" class="text-err"></strong>% bits flipped</div>
+      </div>
+
+      <div style="display:flex; gap:10px; justify-content:flex-end;">
+        <button type="button" id="btn-run-compare" class="v-btn v-btn-primary" style="width:auto;">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+          Compare
+        </button>
+        <button type="button" class="v-btn v-btn-neutral" style="width:auto;" onclick="document.getElementById('compareModal').style.display='none'">Cancel</button>
       </div>
     </div>
   </div>
@@ -250,5 +313,32 @@
 {% endblock %}
 
 {% block scripts %}
+<script>
+  /* Tab switching for center panel */
+  document.querySelectorAll('#bottomTabs .v-tab').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('#bottomTabs .v-tab').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      const target = btn.getAttribute('data-target');
+      ['#tab-perf','#tab-avalanche','#tab-attack'].forEach(id => {
+        const el = document.querySelector(id);
+        if (el) el.style.display = (id === target) ? '' : 'none';
+      });
+    });
+  });
+  /* Bench mode toggle */
+  document.getElementById('bench-filesize').addEventListener('click', function() {
+    this.classList.add('active');
+    document.getElementById('bench-keysize').classList.remove('active');
+  });
+  document.getElementById('bench-keysize').addEventListener('click', function() {
+    this.classList.add('active');
+    document.getElementById('bench-filesize').classList.remove('active');
+  });
+  /* Close modal on backdrop click */
+  document.getElementById('compareModal').addEventListener('click', function(e) {
+    if (e.target === this) this.style.display = 'none';
+  });
+</script>
 <script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
 {% endblock %}
