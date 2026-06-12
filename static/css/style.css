@@ -423,3 +423,39 @@ a { color: inherit; text-decoration: none; }
 .text-navy { color: var(--navy) !important; }
 .fw-600 { font-weight: 600; }
 .gap-3-col { display: flex; flex-direction: column; gap: 12px; }
+
+/* ── t-badge: status pill (replaces Bootstrap badge) ───────────────────── */
+.t-badge {
+  display: inline-flex; align-items: center;
+  font-size: .6875rem; font-weight: 600; letter-spacing: .03em;
+  padding: 2px 9px; border-radius: 20px;
+}
+.t-badge.ok      { background: #EEF4EF; color: var(--ok);   }
+.t-badge.err     { background: #F5EEEE; color: var(--err);  }
+.t-badge.warn    { background: #FDF4E7; color: var(--warn); }
+.t-badge.pending { background: var(--bg-subtle); color: var(--text-2); }
+
+/* ── Trust Chain rows (Issue 4) ─────────────────────────────────────────── */
+.trust-row {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 6px 0; border-bottom: 1px solid var(--border);
+}
+.trust-row:last-child { border-bottom: none; }
+.tr-label {
+  display: flex; align-items: center; gap: 6px;
+  font-size: .8125rem; color: var(--text); font-weight: 500;
+}
+
+/* ── Bench status text ──────────────────────────────────────────────────── */
+.bench-status { font-size: .75rem; color: var(--text-2); }
+
+/* ── Danger button (for audit clear) ───────────────────────────────────── */
+.v-btn-danger {
+  background: #F5EEEE; color: var(--err);
+  border-color: #E8D5D5;
+}
+.v-btn-danger:hover { background: #EDDEDE; border-color: var(--err); }
+
+/* ── Audit clear modal ──────────────────────────────────────────────────── */
+#clearModal { display:none; position:fixed; inset:0; z-index:500; background:rgba(30,30,30,.45); align-items:center; justify-content:center; }
+

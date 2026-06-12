@@ -166,10 +166,10 @@
         <span class="v-card-title">Timestamp Authority</span>
       </div>
       <div class="v-card-body">
-        <p style="font-size:.8125rem; color:var(--text-2); margin-bottom:16px;">After signing a document, the TSA token is displayed here.</p>
+        <p style="font-size:.8125rem; color:var(--text-2); margin-bottom:16px;">The latest timestamp token is shown after you sign a document on the Dashboard.</p>
         <div id="tsa-placeholder" style="text-align:center; padding:24px 0; color:var(--text-3);">
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-          <p style="font-size:.8125rem; margin-top:8px;">Sign a document to generate a TSA token.</p>
+          <p style="font-size:.8125rem; margin-top:8px;">Go to Dashboard &rarr; sign a document to generate a TSA token. It will appear here automatically.</p>
         </div>
         <div id="tsa-info" style="display:none;">
           <table style="width:100%; border-collapse:collapse;">
@@ -189,14 +189,18 @@
         <span class="v-card-title">Merkle Tree Integrity</span>
       </div>
       <div class="v-card-body gap">
-        <p style="font-size:.8125rem; color:var(--text-2); margin:0;">Compare two files at the chunk level for targeted mismatch detection.</p>
+        <!-- Issue 3: improved description -->
+        <p style="font-size:.8125rem; color:var(--text-2); margin:0;">Compare an original document and a modified version to identify chunk-level integrity changes using Merkle Trees.</p>
         <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
           <div>
-            <label class="v-label">Original</label>
+            <!-- Issue 3: help labels -->
+            <label class="v-label">Original File</label>
+            <p style="font-size:.6875rem; color:var(--text-2); margin-bottom:4px;">The signed or original document.</p>
             <input type="file" id="merkle-file1" class="v-input" />
           </div>
           <div>
-            <label class="v-label">Modified</label>
+            <label class="v-label">Modified File</label>
+            <p style="font-size:.6875rem; color:var(--text-2); margin-bottom:4px;">A changed version to test integrity detection.</p>
             <input type="file" id="merkle-file2" class="v-input" />
           </div>
         </div>
@@ -212,9 +216,10 @@
             <tr><td style="padding:5px 0; border-bottom:1px solid var(--border); color:var(--text-2); font-size:.75rem;">Roots Match</td><td id="merkle-match" style="padding:5px 0; border-bottom:1px solid var(--border);"></td></tr>
             <tr><td style="padding:5px 0; border-bottom:1px solid var(--border); color:var(--text-2); font-size:.75rem;">Orig Chunks</td><td id="merkle-orig-chunks" style="padding:5px 0; border-bottom:1px solid var(--border); font-size:.8125rem; font-weight:500;"></td></tr>
             <tr><td style="padding:5px 0; border-bottom:1px solid var(--border); color:var(--text-2); font-size:.75rem;">Mod Chunks</td><td id="merkle-mod-chunks" style="padding:5px 0; border-bottom:1px solid var(--border); font-size:.8125rem; font-weight:500;"></td></tr>
-            <tr><td style="padding:5px 0; color:var(--text-2); font-size:.75rem;">Mismatches</td><td id="merkle-mismatch-count" style="padding:5px 0;"></td></tr>
+            <!-- Issue 3: Changed Chunks with indices -->
+            <tr><td style="padding:5px 0; color:var(--text-2); font-size:.75rem;">Changed Chunks</td><td id="merkle-mismatch-count" style="padding:5px 0;"></td></tr>
           </table>
-          <canvas id="merkleChart" height="120"></canvas>
+          <canvas id="merkleChart" height="120" style="display:none;"></canvas>
         </div>
       </div>
     </div>

@@ -9,12 +9,25 @@
     <h1 style="font-family:'Playfair Display',serif; font-size:1.5rem; font-weight:600; color:var(--text); margin:0 0 4px;">Audit Ledger</h1>
     <p style="font-size:.875rem; color:var(--text-2); margin:0;">Complete record of all cryptographic operations performed on this system.</p>
   </div>
-  <span style="font-size:.8125rem; color:var(--text-2);">{{ logs|length }} records</span>
+  <div style="display:flex; align-items:center; gap:14px;">
+    <span id="record-count" style="font-size:.8125rem; color:var(--text-2);">{{ logs|length }} records</span>
+    <!-- Issue 5: Clear audit log button -->
+    <button id="btn-clear-audit" class="v-btn v-btn-danger" style="width:auto;" onclick="document.getElementById('clearModal').style.display='flex'">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+      Clear Log
+    </button>
+  </div>
 </div>
 
-<div class="v-card">
+<!-- Success message (hidden by default) -->
+<div id="clear-success" style="display:none; margin-bottom:16px;" class="status-bar success">
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+  <span id="clear-success-msg">Audit log cleared.</span>
+</div>
+
+<div class="v-card" id="audit-card">
   <div style="overflow-x:auto;">
-    <table class="audit-tbl">
+    <table class="audit-tbl" id="audit-table">
       <thead>
         <tr>
           <th>Timestamp</th>
@@ -30,9 +43,9 @@
           <th>Notes</th>
         </tr>
       </thead>
-      <tbody>
+      <tbody id="audit-tbody">
         {% if not logs %}
-        <tr>
+        <tr id="empty-row">
           <td colspan="11" style="text-align:center; padding:48px 16px; color:var(--text-3);">
             <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="display:block; margin:0 auto 10px;"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
             No audit records yet. Sign or verify a document to generate entries.
@@ -53,9 +66,16 @@
           </td>
           <td>
             {% if log.certificate_id %}
-              <code class="mono" title="{{ log.certificate_id }}">{{ log.certificate_id[:12] }}&hellip;</code>
+              {# Issue 1: Clickable cert ID copies full ID to clipboard #}
+              <button
+                class="cert-id-btn"
+                title="Click to copy full Certificate ID"
+                onclick="copyToClipboard('{{ log.certificate_id }}')"
+                style="background:none;border:none;cursor:pointer;text-align:left;padding:0;font-family:inherit;">
+                <code class="mono" style="color:var(--slate); text-decoration:underline dotted; text-underline-offset:2px;">{{ log.certificate_id[:14] }}&hellip;</code>
+              </button>
               {% if log.certificate_status %}
-                <span style="display:block; font-size:.6875rem; color:var(--text-2); margin-top:2px;">{{ log.certificate_status }}</span>
+                <div style="font-size:.6875rem; color:var(--text-2); margin-top:1px;">{{ log.certificate_status }}</div>
               {% endif %}
             {% else %}
               <span style="color:var(--text-3);">—</span>
@@ -70,7 +90,7 @@
           </td>
           <td>
             {% if log.merkle_root %}
-              <code class="mono" title="{{ log.merkle_root }}">{{ log.merkle_root[:12] }}&hellip;</code>
+              <code class="mono" title="{{ log.merkle_root }}">{{ log.merkle_root[:14] }}&hellip;</code>
             {% else %}
               <span style="color:var(--text-3);">—</span>
             {% endif %}
@@ -84,4 +104,100 @@
   </div>
 </div>
 
+<!-- ── Clear Confirmation Modal ──────────────────────────────────────────── -->
+<div id="clearModal" style="align-items:center; justify-content:center;">
+  <div class="v-card" style="width:100%; max-width:400px; box-shadow:0 8px 32px rgba(0,0,0,.14);">
+    <div class="v-card-header">
+      <svg class="v-card-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--err)" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>
+      <span class="v-card-title" style="color:var(--err);">Clear Audit Log?</span>
+    </div>
+    <div class="v-card-body gap">
+      <p style="font-size:.875rem; color:var(--text-2); margin:0;">
+        This will permanently delete all audit records. The database and table structure will be preserved, but all entries will be removed.
+      </p>
+      <p style="font-size:.8125rem; font-weight:600; color:var(--err); margin:0;">This action cannot be undone.</p>
+      <div style="display:flex; gap:10px; justify-content:flex-end; margin-top:4px;">
+        <button id="btn-confirm-clear" class="v-btn v-btn-danger" style="width:auto;">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>
+          Clear All Records
+        </button>
+        <button class="v-btn v-btn-neutral" style="width:auto;" onclick="document.getElementById('clearModal').style.display='none'">Cancel</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+/* ── Copy to clipboard helper (shared with dashboard.js / analysis.js) ── */
+function copyToClipboard(text) {
+  navigator.clipboard.writeText(text).then(() => {
+    // Show a brief tooltip
+    const tip = document.createElement("div");
+    tip.textContent = "Copied!";
+    tip.style.cssText = `
+      position:fixed; bottom:24px; right:24px; z-index:9999;
+      background:var(--navy); color:#fff; padding:8px 16px;
+      border-radius:var(--radius-sm); font-size:.8125rem; font-weight:500;
+      box-shadow:var(--shadow);
+    `;
+    document.body.appendChild(tip);
+    setTimeout(() => tip.remove(), 1800);
+  }).catch(() => {
+    const el = document.createElement("textarea");
+    el.value = text;
+    document.body.appendChild(el);
+    el.select();
+    document.execCommand("copy");
+    document.body.removeChild(el);
+  });
+}
+
+/* ── Close modal on backdrop click ────────────────────────────────────── */
+document.getElementById("clearModal").addEventListener("click", function(e) {
+  if (e.target === this) this.style.display = "none";
+});
+
+/* ── Confirm clear ────────────────────────────────────────────────────── */
+document.getElementById("btn-confirm-clear").addEventListener("click", async () => {
+  const btn = document.getElementById("btn-confirm-clear");
+  btn.textContent = "Clearing…";
+  btn.disabled = true;
+
+  try {
+    const res  = await fetch("/api/audit/clear", { method: "POST" });
+    const data = await res.json();
+
+    document.getElementById("clearModal").style.display = "none";
+
+    if (data.success) {
+      // Clear table rows
+      document.getElementById("audit-tbody").innerHTML = `
+        <tr>
+          <td colspan="11" style="text-align:center; padding:48px 16px; color:var(--text-3);">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="display:block; margin:0 auto 10px;"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+            No audit records yet. Sign or verify a document to generate entries.
+          </td>
+        </tr>`;
+      // Update count
+      document.getElementById("record-count").textContent = "0 records";
+      // Show success banner
+      const successEl = document.getElementById("clear-success");
+      document.getElementById("clear-success-msg").textContent =
+        `Audit log cleared — ${data.deleted_records} record${data.deleted_records !== 1 ? "s" : ""} removed.`;
+      successEl.style.display = "flex";
+      setTimeout(() => successEl.style.display = "none", 4000);
+    } else {
+      alert("Error clearing log: " + (data.error || "Unknown error"));
+    }
+  } catch (e) {
+    alert("Request failed: " + e.message);
+  } finally {
+    btn.textContent = "Clear All Records";
+    btn.disabled = false;
+  }
+});
+</script>
 {% endblock %}

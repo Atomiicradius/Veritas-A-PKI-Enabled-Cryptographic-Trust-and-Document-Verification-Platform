@@ -54,12 +54,16 @@ document.getElementById("btn-sign").addEventListener("click", async () => {
 
     currentSigId = data.sig_id;
     currentHash  = data.file_hash;
-    showResult("signed", "✍️ Signed");
+    showResult("signed", "Signed");
     showHashDisplay(data.file_hash);
     showSigInfo(data.sig_info);
     renderPipeline(data.pipeline);
     showDownloadLink(data.sig_id);
-    showV2Info(data);           // v2: PKI / TSA / Merkle badges
+    showV2Info(data);           // v2: Trust chain badges
+    // Populate TSA panel on Analysis page if it is loaded in the same tab
+    if (typeof window.populateTsaPanel === "function") {
+      window.populateTsaPanel(data.tsa_token, null);
+    }
     setStatus("Document signed successfully.", "success");
   } catch (e) {
     setStatus("Request failed: " + e.message, "danger");
@@ -94,11 +98,18 @@ document.getElementById("btn-verify").addEventListener("click", async () => {
 
     currentHash = data.file_hash;
     const isValid = data.valid;
-    showResult(isValid ? "valid" : "invalid", isValid ? "✅ VALID" : "❌ INVALID");
+    showResult(isValid ? "valid" : "invalid", isValid ? "Valid" : "Invalid");
     showHashDisplay(data.file_hash);
     showSigInfo(data.sig_info);
     renderPipeline(data.pipeline);
-    showV2Info(data);           // v2: PKI / TSA / Merkle badges
+    showV2Info(data);           // v2: Trust chain badges
+    // Populate TSA panel on Analysis page if loaded
+    if (typeof window.populateTsaPanel === "function") {
+      window.populateTsaPanel(
+        data.sig_info && data.sig_info.tsa_token,
+        data.timestamp_valid
+      );
+    }
     setStatus(isValid ? "Signature is valid." : "Signature is INVALID — document may have been tampered.", isValid ? "success" : "danger");
   } catch (e) {
     setStatus("Request failed: " + e.message, "danger");
@@ -354,59 +365,101 @@ function renderAttackTable(containerId, levels) {
   container.innerHTML = html;
 }
 
-/* ── v2: Show PKI / TSA / Merkle summary badges in Right Panel ───── */
+/* ── v2: Trust Chain summary in Right Panel ────────────────────── */
 function showV2Info(data) {
-  // Reuse or create the v2 summary block inside the right panel card-body
+  // Reuse or create the v2 block inside the right panel card-body
   let v2Block = document.getElementById("v2-info-block");
   if (!v2Block) {
-    // Append once after sig-info-block
     v2Block = document.createElement("div");
     v2Block.id = "v2-info-block";
     const parent = document.getElementById("sig-info-block").parentNode;
     parent.appendChild(v2Block);
   }
 
-  const certValid  = data.certificate_valid;
-  const tsaValid   = data.timestamp_valid;
+  const certValid  = data.certificate_valid;         // bool or null
+  const tsaValid   = data.timestamp_valid;           // bool or null
   const merkle     = data.merkle_verify || {};
-  const cert       = data.certificate   || (data.sig_info && data.sig_info.cert_id ? {cert_id: data.sig_info.cert_id} : null);
-  const tsa        = data.tsa_token     || (data.sig_info && data.sig_info.tsa_token);
-  const merkleRoot = data.merkle_root   || (data.sig_info && data.sig_info.merkle_root);
+  const cert       = data.certificate || (data.sig_info && data.sig_info.cert_id ? { cert_id: data.sig_info.cert_id } : null);
+  const tsa        = data.tsa_token   || (data.sig_info && data.sig_info.tsa_token);
+  const merkleRoot = data.merkle_root || (data.sig_info && data.sig_info.merkle_root);
+  const certId     = cert && cert.cert_id ? cert.cert_id : null;
 
-  const certBadge = certValid === true
-    ? '<span class="badge bg-success">✓ Cert Valid</span>'
-    : certValid === false
-      ? '<span class="badge bg-danger">✗ Cert Invalid</span>'
-      : '<span class="badge bg-secondary">Cert: N/A</span>';
+  /* ── Helper: one trust row ──────────────────────── */
+  function row(icon, label, status, sub) {
+    const badgeCls = status === "ok" ? "ok" : status === "err" ? "err" : "pending";
+    const iconSvg  = status === "ok"
+      ? `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--ok)" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>`
+      : status === "err"
+        ? `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--err)" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`
+        : `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--text-3)" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>`;
+    return `<div class="trust-row">
+      <span class="tr-label">${iconSvg} ${label}</span>
+      <span class="t-badge ${badgeCls}">${sub || (status === "ok" ? "Verified" : status === "err" ? "Failed" : "N/A")}</span>
+    </div>`;
+  }
 
-  const tsaBadge = tsaValid === true
-    ? '<span class="badge bg-success">✓ TSA Valid</span>'
-    : tsaValid === false
-      ? '<span class="badge bg-danger">✗ TSA Invalid</span>'
-      : (tsa ? '<span class="badge bg-secondary">TSA: N/A</span>' : '');
+  /* ── Build trust chain rows ───────────────────────── */
+  const certStatus    = certValid === true  ? "ok" : certValid === false ? "err" : "pending";
+  const tsaStatus     = tsaValid  === true  ? "ok" : tsaValid  === false ? "err" : (tsa ? "pending" : "pending");
+  const merkleStatus  = merkle.merkle_matches === true  ? "ok" :
+                        merkle.merkle_matches === false ? "err" :
+                        merkleRoot ? "pending" : "pending";
+  // RSA signature status derived from the overall result badge
+  const rsaStatus     = data.valid === true ? "ok" : data.valid === false ? "err" : (data.status === "signed" ? "ok" : "pending");
 
-  const merkleBadge = merkle.merkle_matches === true
-    ? '<span class="badge bg-success">✓ Merkle OK</span>'
-    : merkle.merkle_matches === false
-      ? '<span class="badge bg-danger">✗ Merkle Mismatch</span>'
-      : (merkleRoot ? '<span class="badge bg-secondary">Merkle: signed</span>' : '');
+  /* Cert ID: truncated + copy button */
+  const certIdHtml = certId
+    ? `<div style="font-size:.6875rem;color:var(--text-2);margin-top:6px;">
+        Cert ID: <code class="mono" style="font-size:.625rem;">${certId.slice(0, 16)}…</code>
+        <button onclick="copyToClipboard('${certId}')" title="Copy full cert_id" style="background:none;border:none;cursor:pointer;color:var(--slate);padding:0 2px;vertical-align:middle;">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+        </button>
+       </div>`
+    : "";
 
-  const certIdDisplay = cert && cert.cert_id
-    ? `<div class="small text-muted mt-1">Cert ID: <code style="font-size:0.6rem">${cert.cert_id.slice(0,16)}…</code></div>`
-    : '';
+  /* TSA time */
+  const tsaTimeHtml = tsa && tsa.timestamp
+    ? `<div style="font-size:.6875rem;color:var(--text-2);margin-top:2px;">Signed: ${tsa.timestamp.replace("T"," ").slice(0,19)} UTC</div>`
+    : "";
 
-  const tsaTimeDisplay = tsa && tsa.timestamp
-    ? `<div class="small text-muted">Signed at: ${tsa.timestamp.replace('T',' ').slice(0,19)} UTC</div>`
-    : '';
-
-  const merkleChunks = data.chunk_count || (data.sig_info && data.sig_info.chunk_count);
-  const merkleChunkDisplay = merkleChunks
-    ? `<div class="small text-muted">Chunks: ${merkleChunks}</div>`
-    : '';
+  /* Merkle chunks */
+  const chunkCount = data.chunk_count || (data.sig_info && data.sig_info.chunk_count);
+  const merkleHtml = chunkCount
+    ? `<div style="font-size:.6875rem;color:var(--text-2);margin-top:2px;">${chunkCount} chunk${chunkCount !== 1 ? "s" : ""} verified</div>`
+    : "";
 
   v2Block.innerHTML = `
-    <label class="form-label fw-semibold small mb-1">PKI / TSA / Merkle</label>
-    <div class="d-flex flex-wrap gap-1 mb-1">${certBadge}${tsaBadge ? ' ' + tsaBadge : ''}${merkleBadge ? ' ' + merkleBadge : ''}</div>
-    ${certIdDisplay}${tsaTimeDisplay}${merkleChunkDisplay}
+    <div style="border-top:1px solid var(--border); margin-top:4px; padding-top:12px;">
+      <p style="font-size:.6875rem;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--text-2);margin:0 0 8px;">Trust Chain</p>
+      ${row("", "Certificate",  certStatus)}
+      ${certIdHtml}
+      ${row("", "Timestamp Authority", tsaStatus)}
+      ${tsaTimeHtml}
+      ${row("", "Merkle Integrity", merkleStatus)}
+      ${merkleHtml}
+      ${row("", "RSA-PSS Signature",  rsaStatus)}
+    </div>
   `;
 }
+
+/* ── Global clipboard helper ─────────────────────────── */
+function copyToClipboard(text) {
+  navigator.clipboard.writeText(text).then(() => {
+    // Brief visual confirmation
+    const tip = document.createElement("span");
+    tip.textContent = " Copied!";
+    tip.style.cssText = "font-size:.7rem;color:var(--ok);margin-left:4px;";
+    document.activeElement.parentNode.appendChild(tip);
+    setTimeout(() => tip.remove(), 1800);
+  }).catch(() => {
+    // Fallback for older browsers
+    const el = document.createElement("textarea");
+    el.value = text;
+    document.body.appendChild(el);
+    el.select();
+    document.execCommand("copy");
+    document.body.removeChild(el);
+  });
+}
+// expose globally so analysis.js CRL buttons can also use it
+window.copyToClipboard = copyToClipboard;

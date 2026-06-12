@@ -11,7 +11,7 @@ from crypto.signer import sign_document
 from crypto.verifier import verify_document
 from analysis.avalanche import compute_avalanche_from_bytes
 from analysis.attack_sim import get_security_levels, tamper_file
-from audit.logger import init_db, log_operation, get_all_logs
+from audit.logger import init_db, log_operation, get_all_logs, clear_logs
 
 # ── New v2 modules (additive – do not remove existing imports) ────────────────
 from crypto.certificate import (
@@ -368,6 +368,16 @@ def api_attack_sim():
 @app.route("/api/audit")
 def api_audit():
     return jsonify({"logs": get_all_logs()})
+
+
+@app.route("/api/audit/clear", methods=["POST"])
+def api_audit_clear():
+    """Delete all rows from audit_log. Preserves schema; does NOT drop table."""
+    try:
+        deleted = clear_logs()
+        return jsonify({"success": True, "deleted_records": deleted})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
 
 
 @app.route("/api/download_sig/<sig_id>")

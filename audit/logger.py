@@ -97,3 +97,17 @@ def get_all_logs(limit: int = 200) -> list:
     ).fetchall()
     conn.close()
     return [dict(r) for r in rows]
+
+
+def clear_logs() -> int:
+    """Delete ALL rows from audit_log. Preserves the table schema.
+
+    Returns the number of records deleted.
+    Equivalent to: DELETE FROM audit_log (not DROP TABLE).
+    """
+    conn = _get_conn()
+    cursor = conn.execute("DELETE FROM audit_log")
+    deleted = cursor.rowcount
+    conn.commit()
+    conn.close()
+    return deleted

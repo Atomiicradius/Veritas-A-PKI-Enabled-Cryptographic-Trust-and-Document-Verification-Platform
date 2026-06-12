@@ -68,7 +68,7 @@ document.getElementById("btn-run-avalanche").addEventListener("click", async () 
     if (data.error) return alert(data.error);
 
     const av = data.avalanche;
-    document.getElementById("av-analysis-result").classList.remove("d-none");
+    document.getElementById("av-analysis-result").style.display = "";  // fix: was classList.remove('d-none')
     document.getElementById("av-a-hash1").textContent      = av.original_hash;
     document.getElementById("av-a-hash2").textContent      = av.modified_hash;
     document.getElementById("av-a-flip-count").textContent = av.flip_count;
@@ -86,27 +86,32 @@ document.getElementById("btn-load-attack-analysis").addEventListener("click", as
     const data = await res.json();
     const levels = data.levels;
 
-    // Table
-    let html = `<table class="table table-bordered table-sm security-table">
-      <thead class="table-dark"><tr>
-        <th>Key Size</th><th>Security Bits</th><th>Status</th><th>Factoring Estimate</th><th>NIST</th>
+    // Table — use refined CSS classes instead of Bootstrap badge/table classes
+    let html = `<table style="width:100%;border-collapse:collapse;" class="security-table">
+      <thead><tr style="background:var(--bg-subtle);">
+        <th style="padding:8px 12px;font-size:.6875rem;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--text-2);border-bottom:1.5px solid var(--border);">Key Size</th>
+        <th style="padding:8px 12px;font-size:.6875rem;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--text-2);border-bottom:1.5px solid var(--border);">Security Bits</th>
+        <th style="padding:8px 12px;font-size:.6875rem;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--text-2);border-bottom:1.5px solid var(--border);">Status</th>
+        <th style="padding:8px 12px;font-size:.6875rem;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--text-2);border-bottom:1.5px solid var(--border);">Factoring Estimate</th>
+        <th style="padding:8px 12px;font-size:.6875rem;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--text-2);border-bottom:1.5px solid var(--border);">NIST</th>
       </tr></thead><tbody>`;
     levels.forEach(l => {
-      const rowCls = l.color === "danger" ? "table-danger" : l.color === "warning" ? "table-warning" : l.color === "success" ? "table-success" : "";
-      html += `<tr class="${rowCls}">
-        <td><strong>${l.key_size}-bit</strong></td>
-        <td>${l.security_bits}</td>
-        <td><span class="badge bg-${l.color}">${l.status}</span></td>
-        <td class="small">${l.factoring_time}</td>
-        <td class="small">${l.nist_status}</td>
+      const badgeCls = l.color === "danger" ? "err" : l.color === "warning" ? "warn" : "ok";
+      const rowBg    = l.color === "danger" ? "#FDF5F5" : l.color === "warning" ? "#FDF8EE" : "#F5FAF6";
+      html += `<tr style="border-bottom:1px solid var(--border); background:${rowBg}">
+        <td style="padding:9px 12px;font-weight:600;font-size:.8125rem;">${l.key_size}-bit</td>
+        <td style="padding:9px 12px;font-size:.8125rem;">${l.security_bits}</td>
+        <td style="padding:9px 12px;"><span class="t-badge ${badgeCls}">${l.status}</span></td>
+        <td style="padding:9px 12px;font-size:.75rem;color:var(--text-2);">${l.factoring_time}</td>
+        <td style="padding:9px 12px;font-size:.75rem;color:var(--text-2);">${l.nist_status}</td>
       </tr>`;
     });
     html += "</tbody></table>";
     document.getElementById("attack-analysis-table").innerHTML = html;
 
-    // Security bits bar chart
+    // Security bits bar chart — use fintech palette
     const chart = document.getElementById("securityChart");
-    chart.classList.remove("d-none");
+    chart.style.display = "";  // fix: was classList.remove('d-none')
     if (chart._chart) chart._chart.destroy();
     chart._chart = new Chart(chart, {
       type: "bar",
@@ -116,25 +121,25 @@ document.getElementById("btn-load-attack-analysis").addEventListener("click", as
           label: "Security Bits",
           data: levels.map(l => l.security_bits),
           backgroundColor: levels.map(l =>
-            l.color === "danger" ? "#dc354588" : l.color === "warning" ? "#ffc10788" : l.color === "success" ? "#19875488" : "#0d6efd88"
+            l.color === "danger" ? "rgba(141,92,92,.35)" : l.color === "warning" ? "rgba(198,162,107,.35)" : "rgba(85,122,91,.35)"
           ),
           borderColor: levels.map(l =>
-            l.color === "danger" ? "#dc3545" : l.color === "warning" ? "#ffc107" : l.color === "success" ? "#198754" : "#0d6efd"
+            l.color === "danger" ? "#8D5C5C" : l.color === "warning" ? "#C6A26B" : "#557A5B"
           ),
-          borderWidth: 2,
+          borderWidth: 1.5,
         }],
       },
       options: {
         responsive: true,
         plugins: { legend: { display: false } },
         scales: {
-          x: { title: { display: true, text: "RSA Key Size" } },
+          x: { title: { display: true, text: "RSA Key Size" }, grid: { display: false } },
           y: { title: { display: true, text: "Equivalent Security (bits)" }, beginAtZero: true },
         },
       },
     });
   } catch (e) {
-    document.getElementById("attack-analysis-table").innerHTML = "<p class='text-danger'>Failed to load: " + e.message + "</p>";
+    document.getElementById("attack-analysis-table").innerHTML = `<p style="color:var(--err);font-size:.8125rem;">Failed to load: ${e.message}</p>`;
   }
 });
 
@@ -154,23 +159,24 @@ document.getElementById("btn-pki-check").addEventListener("click", async () => {
     const cert = data.certificate;
     const ver  = data.verification;
 
+    // Display full cert_id in a copyable element
     document.getElementById("pki-subject").textContent  = cert.subject;
     document.getElementById("pki-issuer").textContent   = cert.issuer;
-    document.getElementById("pki-issued").textContent   = cert.issued_at;
-    document.getElementById("pki-expires").textContent  = cert.expires_at;
+    document.getElementById("pki-issued").textContent   = (cert.issued_at  || "").replace("T", " ").slice(0, 19) + " UTC";
+    document.getElementById("pki-expires").textContent  = (cert.expires_at || "").replace("T", " ").slice(0, 19) + " UTC";
     document.getElementById("pki-revoked").innerHTML    = ver.revoked
-      ? '<span class="badge bg-danger">Yes</span>'
-      : '<span class="badge bg-success">No</span>';
+      ? '<span class="t-badge err">Revoked</span>'
+      : '<span class="t-badge ok">Not Revoked</span>';
     document.getElementById("pki-valid").innerHTML      = ver.certificate_valid
-      ? '<span class="badge bg-success">✓ Valid</span>'
-      : '<span class="badge bg-danger">✗ Invalid</span>';
+      ? '<span class="t-badge ok">Valid</span>'
+      : '<span class="t-badge err">Invalid</span>';
 
     const reasonEl = document.getElementById("pki-reason-badge");
     reasonEl.innerHTML = ver.reason
-      ? `<span class="badge bg-warning text-dark">${ver.reason}</span>`
+      ? `<span class="t-badge warn">${ver.reason}</span>`
       : "";
 
-    document.getElementById("pki-status-result").classList.remove("d-none");
+    document.getElementById("pki-status-result").style.display = "";  // fix: was classList
   } catch (e) {
     alert("Error: " + e.message);
   }
@@ -184,15 +190,20 @@ document.getElementById("btn-pki-crl").addEventListener("click", async () => {
     const list = document.getElementById("pki-crl-list");
     list.innerHTML = "";
     if (!data.revoked || data.revoked.length === 0) {
-      list.innerHTML = "<li class='text-muted'>No revoked certificates.</li>";
+      list.innerHTML = "<li style='color:var(--text-3);font-size:.8125rem;padding:4px 0;'>No revoked certificates.</li>";
     } else {
       data.revoked.forEach(id => {
         const li = document.createElement("li");
-        li.innerHTML = `<code class="small">${id}</code>`;
+        li.style.cssText = "padding:3px 0; border-bottom:1px solid var(--border);";
+        li.innerHTML = `<code class="mono" title="${id}">${id.slice(0,20)}…</code>
+          <button onclick="copyToClipboard('${id}')" style="margin-left:6px;background:none;border:none;cursor:pointer;color:var(--slate);font-size:.75rem;">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+            Copy
+          </button>`;
         list.appendChild(li);
       });
     }
-    document.getElementById("pki-crl-result").classList.remove("d-none");
+    document.getElementById("pki-crl-result").style.display = "";  // fix: was classList
   } catch (e) {
     alert("Failed to load CRL: " + e.message);
   }
@@ -201,16 +212,17 @@ document.getElementById("btn-pki-crl").addEventListener("click", async () => {
 /* ── TSA: Helper to populate the TSA panel from sign result ─────── */
 window.populateTsaPanel = function(tsaToken, tsaValid) {
   if (!tsaToken) return;
-  document.getElementById("tsa-placeholder").classList.add("d-none");
-  document.getElementById("tsa-info").classList.remove("d-none");
-  document.getElementById("tsa-timestamp").textContent = tsaToken.timestamp || "—";
+  document.getElementById("tsa-placeholder").style.display = "none";  // fix: was classList
+  document.getElementById("tsa-info").style.display = "";             // fix: was classList
+  document.getElementById("tsa-timestamp").textContent = tsaToken.timestamp
+    ? tsaToken.timestamp.replace("T", " ").slice(0, 19) + " UTC" : "—";
   document.getElementById("tsa-name").textContent      = tsaToken.tsa      || "—";
-  document.getElementById("tsa-hash").textContent      = tsaToken.hash     || "—";
+  document.getElementById("tsa-hash").textContent      = (tsaToken.hash || "").slice(0, 32) + (tsaToken.hash && tsaToken.hash.length > 32 ? "…" : "");
   document.getElementById("tsa-valid").innerHTML       = tsaValid === true
-    ? '<span class="badge bg-success">✓ Valid</span>'
+    ? '<span class="t-badge ok">Valid</span>'
     : tsaValid === false
-      ? '<span class="badge bg-danger">✗ Invalid</span>'
-      : '<span class="badge bg-secondary">—</span>';
+      ? '<span class="t-badge err">Invalid</span>'
+      : '<span class="t-badge pending">—</span>';
 };
 
 /* ── Merkle: Compare two files ───────────────────────────────────── */
@@ -229,40 +241,49 @@ document.getElementById("btn-merkle-compare").addEventListener("click", async ()
     if (data.error) return alert(data.error);
 
     const m = data.merkle;
-    document.getElementById("merkle-orig-root").textContent   = m.original_root;
-    document.getElementById("merkle-mod-root").textContent    = m.modified_root;
+    document.getElementById("merkle-orig-root").textContent   = (m.original_root || "").slice(0, 32) + "…";
+    document.getElementById("merkle-mod-root").textContent    = (m.modified_root  || "").slice(0, 32) + "…";
     document.getElementById("merkle-match").innerHTML         = m.roots_match
-      ? '<span class="badge bg-success">✓ Match</span>'
-      : '<span class="badge bg-danger">✗ Mismatch</span>';
+      ? '<span class="t-badge ok">Roots Match</span>'
+      : '<span class="t-badge err">Roots Differ</span>';
     document.getElementById("merkle-orig-chunks").textContent  = m.original_chunks;
     document.getElementById("merkle-mod-chunks").textContent   = m.modified_chunks;
-    document.getElementById("merkle-mismatch-count").innerHTML = m.mismatch_count > 0
-      ? `<span class="badge bg-danger">${m.mismatch_count} chunks differ</span>`
-      : '<span class="badge bg-success">0 — identical</span>';
 
-    // Bar chart: chunk counts
+    // Show mismatched chunk indices for usability (Issue 3)
+    const mismatchEl = document.getElementById("merkle-mismatch-count");
+    if (m.mismatch_count === 0) {
+      mismatchEl.innerHTML = '<span class="t-badge ok">0 — identical</span>';
+    } else {
+      const indices = (m.mismatched_chunks || []).slice(0, 20).join(", ");
+      const more    = (m.mismatched_chunks || []).length > 20 ? " …" : "";
+      mismatchEl.innerHTML = `<span class="t-badge err">${m.mismatch_count} chunks differ</span>
+        <div style="font-size:.75rem;color:var(--text-2);margin-top:4px;">Changed indices: [${indices}${more}]</div>`;
+    }
+
+    // Bar chart — fintech palette
     const ctx = document.getElementById("merkleChart");
+    ctx.style.display = "";
     if (ctx._chart) ctx._chart.destroy();
     ctx._chart = new Chart(ctx, {
       type: "bar",
       data: {
-        labels: ["Original Chunks", "Modified Chunks", "Mismatched Chunks"],
+        labels: ["Original Chunks", "Modified Chunks", "Changed Chunks"],
         datasets: [{
           label: "Count",
           data: [m.original_chunks, m.modified_chunks, m.mismatch_count],
-          backgroundColor: ["#0d6efd88", "#19875488", "#dc354588"],
-          borderColor:     ["#0d6efd",   "#198754",   "#dc3545"],
-          borderWidth: 2,
+          backgroundColor: ["rgba(79,100,122,.3)", "rgba(85,122,91,.3)", "rgba(141,92,92,.35)"],
+          borderColor:     ["#4F647A",             "#557A5B",            "#8D5C5C"],
+          borderWidth: 1.5,
         }],
       },
       options: {
         responsive: true,
         plugins: { legend: { display: false } },
-        scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } },
+        scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } }, x: { grid: { display: false } } },
       },
     });
 
-    document.getElementById("merkle-result").classList.remove("d-none");
+    document.getElementById("merkle-result").style.display = "";  // fix: was classList
   } catch (e) {
     alert("Merkle compare error: " + e.message);
   }
