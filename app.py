@@ -403,12 +403,39 @@ def api_pki_issue():
 @app.route("/api/pki/revoke", methods=["POST"])
 def api_pki_revoke():
     """Add a cert_id to the Certificate Revocation List."""
-    data = request.get_json(force=True) or {}
-    cert_id = data.get("cert_id", "")
+    data    = request.get_json(force=True) or {}
+    cert_id = data.get("cert_id", "").strip()
     if not cert_id:
         return jsonify({"error": "cert_id required"}), 400
-    revoke_certificate(cert_id)
-    return jsonify({"status": "revoked", "cert_id": cert_id})
+
+    # Resolve subject for the audit log (non-fatal if cert not on disk)
+    cert_meta = load_certificate(cert_id)
+    subject   = cert_meta["subject"] if cert_meta else "unknown"
+
+    # Check whether already revoked (is_revoked reads the CRL)
+    already = is_revoked(cert_id)
+
+    if not already:
+        revoke_certificate(cert_id)
+
+    # Write audit entry for every attempt
+    log_operation(
+        "CERTIFICATE_REVOKE",
+        subject,
+        "",
+        "system",
+        0,
+        "SUCCESS" if not already else "ALREADY_REVOKED",
+        f"cert_id={cert_id}",
+        certificate_id=cert_id,
+        certificate_status="REVOKED",
+    )
+
+    return jsonify({
+        "status":          "revoked",
+        "cert_id":         cert_id,
+        "already_revoked": already,
+    })
 
 
 @app.route("/api/pki/status", methods=["GET"])

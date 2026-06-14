@@ -40,11 +40,22 @@ def _ensure_certs_dir() -> None:
 
 
 def _load_crl() -> list:
-    """Return the current Certificate Revocation List (list of cert_ids)."""
+    """Return CRL as list of dicts {cert_id, revoked_at}.
+
+    Backward-compatible: plain string entries (old format) are normalised
+    to dicts transparently.
+    """
     if not os.path.exists(CRL_PATH):
         return []
     with open(CRL_PATH, "r") as f:
-        return json.load(f)
+        raw = json.load(f)
+    result = []
+    for entry in raw:
+        if isinstance(entry, str):
+            result.append({"cert_id": entry, "revoked_at": "unknown"})
+        else:
+            result.append(entry)
+    return result
 
 
 def _save_crl(crl: list) -> None:
@@ -255,13 +266,20 @@ def verify_certificate(cert: dict) -> dict:
 # ── CRL management ─────────────────────────────────────────────────────────────
 
 def revoke_certificate(cert_id: str) -> None:
-    """Add *cert_id* to the Certificate Revocation List."""
-    crl = _load_crl()
-    if cert_id not in crl:
-        crl.append(cert_id)
+    """Add *cert_id* to the CRL with a revocation timestamp.
+
+    Idempotent — a second call for the same cert_id is a no-op.
+    """
+    crl        = _load_crl()
+    existing   = {e["cert_id"] for e in crl}
+    if cert_id not in existing:
+        crl.append({
+            "cert_id":    cert_id,
+            "revoked_at": datetime.now(timezone.utc).isoformat(),
+        })
         _save_crl(crl)
 
 
 def is_revoked(cert_id: str) -> bool:
     """Return True if *cert_id* appears in the CRL."""
-    return cert_id in _load_crl()
+    return cert_id in {e["cert_id"] for e in _load_crl()}

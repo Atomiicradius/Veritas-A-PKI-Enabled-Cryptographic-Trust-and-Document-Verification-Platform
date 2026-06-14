@@ -5,8 +5,11 @@
 
 <!-- Page heading -->
 <div style="margin-bottom:28px;">
-  <h1 style="font-family:'Playfair Display',serif; font-size:1.5rem; font-weight:600; color:var(--text); margin:0 0 4px;">Research &amp; Analysis</h1>
-  <p style="font-size:.875rem; color:var(--text-2); margin:0;">Benchmark performance, inspect certificates, and verify document integrity.</p>
+  <h1
+    style="font-family:'Playfair Display',serif; font-size:1.5rem; font-weight:600; color:var(--text); margin:0 0 4px;">
+    Research &amp; Analysis</h1>
+  <p style="font-size:.875rem; color:var(--text-2); margin:0;">Benchmark performance, inspect certificates, and verify
+    document integrity.</p>
 </div>
 
 <!-- Row 1: Performance Benchmarks -->
@@ -20,13 +23,19 @@
     <!-- File size benchmark -->
     <div class="v-card">
       <div class="v-card-header">
-        <svg class="v-card-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+        <svg class="v-card-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+          stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+          <polyline points="14 2 14 8 20 8" />
+        </svg>
         <span class="v-card-title">Time vs. File Size</span>
       </div>
       <div class="v-card-body">
         <div style="display:flex; align-items:center; gap:10px; margin-bottom:12px;">
           <button id="btn-bench-filesize" class="v-btn v-btn-primary v-btn-sm" style="width:auto;">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polygon points="5 3 19 12 5 21 5 3" />
+            </svg>
             Run
           </button>
           <span id="bench-fs-status" class="bench-status"></span>
@@ -38,13 +47,19 @@
     <!-- Key size benchmark -->
     <div class="v-card">
       <div class="v-card-header">
-        <svg class="v-card-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>
+        <svg class="v-card-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+          stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path
+            d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4" />
+        </svg>
         <span class="v-card-title">Time vs. Key Size</span>
       </div>
       <div class="v-card-body">
         <div style="display:flex; align-items:center; gap:10px; margin-bottom:12px;">
           <button id="btn-bench-keysize" class="v-btn v-btn-primary v-btn-sm" style="width:auto;">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polygon points="5 3 19 12 5 21 5 3" />
+            </svg>
             Run
           </button>
           <span id="bench-ks-status" class="bench-status"></span>
@@ -66,7 +81,18 @@
     <!-- Avalanche -->
     <div class="v-card">
       <div class="v-card-header">
-        <svg class="v-card-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="4" height="4"/><rect x="10" y="3" width="4" height="4"/><rect x="17" y="3" width="4" height="4"/><rect x="3" y="10" width="4" height="4"/><rect x="10" y="10" width="4" height="4"/><rect x="17" y="10" width="4" height="4"/><rect x="3" y="17" width="4" height="4"/><rect x="10" y="17" width="4" height="4"/><rect x="17" y="17" width="4" height="4"/></svg>
+        <svg class="v-card-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+          stroke-width="2">
+          <rect x="3" y="3" width="4" height="4" />
+          <rect x="10" y="3" width="4" height="4" />
+          <rect x="17" y="3" width="4" height="4" />
+          <rect x="3" y="10" width="4" height="4" />
+          <rect x="10" y="10" width="4" height="4" />
+          <rect x="17" y="10" width="4" height="4" />
+          <rect x="3" y="17" width="4" height="4" />
+          <rect x="10" y="17" width="4" height="4" />
+          <rect x="17" y="17" width="4" height="4" />
+        </svg>
         <span class="v-card-title">Avalanche Effect</span>
       </div>
       <div class="v-card-body">
@@ -81,12 +107,16 @@
           </div>
         </div>
         <button id="btn-run-avalanche" class="v-btn v-btn-neutral" style="width:auto; margin-bottom:16px;">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polygon points="5 3 19 12 5 21 5 3" />
+          </svg>
           Compute Avalanche
         </button>
         <div id="av-analysis-result" style="display:none;">
-          <div style="font-size:.75rem; color:var(--text-2); margin-bottom:4px;">Original: <code id="av-a-hash1" class="mono"></code></div>
-          <div style="font-size:.75rem; color:var(--text-2); margin-bottom:12px;">Modified: <code id="av-a-hash2" class="mono"></code></div>
+          <div style="font-size:.75rem; color:var(--text-2); margin-bottom:4px;">Original: <code id="av-a-hash1"
+              class="mono"></code></div>
+          <div style="font-size:.75rem; color:var(--text-2); margin-bottom:12px;">Modified: <code id="av-a-hash2"
+              class="mono"></code></div>
           <div id="av-analysis-grid" class="avalanche-grid" style="margin-bottom:10px;"></div>
           <div style="text-align:center; font-size:.8125rem; color:var(--text-2);">
             <strong id="av-a-flip-count"></strong> / 256 bits flipped &nbsp;&mdash;&nbsp;
@@ -99,12 +129,17 @@
     <!-- Security Levels -->
     <div class="v-card">
       <div class="v-card-header">
-        <svg class="v-card-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+        <svg class="v-card-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+          stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+        </svg>
         <span class="v-card-title">RSA Key Security Levels</span>
       </div>
       <div class="v-card-body">
         <button id="btn-load-attack-analysis" class="v-btn v-btn-neutral" style="width:auto; margin-bottom:16px;">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+          </svg>
           Load Analysis
         </button>
         <div id="attack-analysis-table"></div>
@@ -125,36 +160,102 @@
     <!-- PKI Certificate Status -->
     <div class="v-card">
       <div class="v-card-header">
-        <svg class="v-card-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="6"/><path d="M15.477 12.89L17 22l-5-3-5 3 1.523-9.11"/></svg>
+        <svg class="v-card-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+          stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="8" r="6" />
+          <path d="M15.477 12.89L17 22l-5-3-5 3 1.523-9.11" />
+        </svg>
         <span class="v-card-title">Certificate Status</span>
       </div>
       <div class="v-card-body gap">
-        <p style="font-size:.8125rem; color:var(--text-2); margin:0;">Enter a Certificate ID to inspect its PKI metadata and revocation status.</p>
+        <p style="font-size:.8125rem; color:var(--text-2); margin:0;">Enter a Certificate ID to inspect its PKI metadata
+          and revocation status.</p>
         <div style="display:flex; gap:8px;">
           <input type="text" id="pki-cert-id-input" class="v-input" placeholder="Paste cert_id…" style="flex:1;" />
-          <button id="btn-pki-check" class="v-btn v-btn-primary v-btn-sm" style="width:auto; flex-shrink:0;">Check</button>
+          <button id="btn-pki-check" class="v-btn v-btn-primary v-btn-sm"
+            style="width:auto; flex-shrink:0;">Check</button>
         </div>
 
         <div id="pki-status-result" style="display:none;">
           <table style="width:100%; border-collapse:collapse;">
-            <tr><td style="padding:6px 0; border-bottom:1px solid var(--border); color:var(--text-2); font-size:.8125rem; width:45%;">Subject</td><td id="pki-subject" style="padding:6px 0; border-bottom:1px solid var(--border); font-size:.8125rem; font-weight:500;"></td></tr>
-            <tr><td style="padding:6px 0; border-bottom:1px solid var(--border); color:var(--text-2); font-size:.8125rem;">Issuer</td><td id="pki-issuer" style="padding:6px 0; border-bottom:1px solid var(--border); font-size:.8125rem; font-weight:500;"></td></tr>
-            <tr><td style="padding:6px 0; border-bottom:1px solid var(--border); color:var(--text-2); font-size:.8125rem;">Issued</td><td id="pki-issued" style="padding:6px 0; border-bottom:1px solid var(--border); font-size:.75rem;"></td></tr>
-            <tr><td style="padding:6px 0; border-bottom:1px solid var(--border); color:var(--text-2); font-size:.8125rem;">Expires</td><td id="pki-expires" style="padding:6px 0; border-bottom:1px solid var(--border); font-size:.75rem;"></td></tr>
-            <tr><td style="padding:6px 0; border-bottom:1px solid var(--border); color:var(--text-2); font-size:.8125rem;">Revoked</td><td id="pki-revoked" style="padding:6px 0; border-bottom:1px solid var(--border);"></td></tr>
-            <tr><td style="padding:6px 0; color:var(--text-2); font-size:.8125rem;">Valid</td><td id="pki-valid" style="padding:6px 0;"></td></tr>
+            <tr>
+              <td
+                style="padding:6px 0; border-bottom:1px solid var(--border); color:var(--text-2); font-size:.8125rem; width:45%;">
+                Subject</td>
+              <td id="pki-subject"
+                style="padding:6px 0; border-bottom:1px solid var(--border); font-size:.8125rem; font-weight:500;"></td>
+            </tr>
+            <tr>
+              <td
+                style="padding:6px 0; border-bottom:1px solid var(--border); color:var(--text-2); font-size:.8125rem;">
+                Issuer</td>
+              <td id="pki-issuer"
+                style="padding:6px 0; border-bottom:1px solid var(--border); font-size:.8125rem; font-weight:500;"></td>
+            </tr>
+            <tr>
+              <td
+                style="padding:6px 0; border-bottom:1px solid var(--border); color:var(--text-2); font-size:.8125rem;">
+                Issued</td>
+              <td id="pki-issued" style="padding:6px 0; border-bottom:1px solid var(--border); font-size:.75rem;"></td>
+            </tr>
+            <tr>
+              <td
+                style="padding:6px 0; border-bottom:1px solid var(--border); color:var(--text-2); font-size:.8125rem;">
+                Expires</td>
+              <td id="pki-expires" style="padding:6px 0; border-bottom:1px solid var(--border); font-size:.75rem;"></td>
+            </tr>
+            <tr>
+              <td
+                style="padding:6px 0; border-bottom:1px solid var(--border); color:var(--text-2); font-size:.8125rem;">
+                Revoked</td>
+              <td id="pki-revoked" style="padding:6px 0; border-bottom:1px solid var(--border);"></td>
+            </tr>
+            <tr>
+              <td style="padding:6px 0; color:var(--text-2); font-size:.8125rem;">Valid</td>
+              <td id="pki-valid" style="padding:6px 0;"></td>
+            </tr>
           </table>
           <div id="pki-reason-badge" style="margin-top:8px;"></div>
+
+          <!-- Revocation action — visible only when certificate is NOT revoked -->
+          <div id="pki-revoke-area" style="margin-top:12px; padding-top:12px; border-top:1px solid var(--border); display:none;">
+            <!-- State A: active cert — show Revoke button -->
+            <button id="btn-pki-revoke" class="v-btn v-btn-danger" style="width:auto; display:none;"
+              onclick="document.getElementById('revokeModal').style.display='flex'">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10"/>
+                <line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/>
+              </svg>
+              Revoke Certificate
+            </button>
+            <!-- State B: already revoked — show badge -->
+            <div id="pki-revoked-badge" style="display:none;">
+              <span class="t-badge err">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+                  style="margin-right:3px;"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                Certificate Revoked
+              </span>
+            </div>
+          </div>
         </div>
 
         <hr class="v-divider" />
         <button id="btn-pki-crl" class="v-btn v-btn-neutral">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="8" y1="6" x2="21" y2="6" />
+            <line x1="8" y1="12" x2="21" y2="12" />
+            <line x1="8" y1="18" x2="21" y2="18" />
+            <line x1="3" y1="6" x2="3.01" y2="6" />
+            <line x1="3" y1="12" x2="3.01" y2="12" />
+            <line x1="3" y1="18" x2="3.01" y2="18" />
+          </svg>
           Load Revocation List
         </button>
         <div id="pki-crl-result" style="display:none;">
-          <p style="font-size:.75rem; font-weight:600; color:var(--text-2); margin-bottom:6px;">Revoked Certificates</p>
-          <ul id="pki-crl-list" style="list-style:none; padding:0; margin:0; font-size:.75rem; color:var(--text-2);"></ul>
+          <p style="font-size:.6875rem; font-weight:600; letter-spacing:.06em; text-transform:uppercase;
+            color:var(--text-2); margin:0 0 8px;">Revoked Certificates</p>
+          <div id="pki-crl-list"></div>
         </div>
       </div>
     </div>
@@ -162,21 +263,52 @@
     <!-- TSA -->
     <div class="v-card">
       <div class="v-card-header">
-        <svg class="v-card-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        <svg class="v-card-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+          stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10" />
+          <polyline points="12 6 12 12 16 14" />
+        </svg>
         <span class="v-card-title">Timestamp Authority</span>
       </div>
       <div class="v-card-body">
-        <p style="font-size:.8125rem; color:var(--text-2); margin-bottom:16px;">The latest timestamp token is shown after you sign a document on the Dashboard.</p>
+        <p style="font-size:.8125rem; color:var(--text-2); margin-bottom:16px;">The latest timestamp token is shown
+          after you sign a document on the Dashboard.</p>
         <div id="tsa-placeholder" style="text-align:center; padding:24px 0; color:var(--text-3);">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-          <p style="font-size:.8125rem; margin-top:8px;">Go to Dashboard &rarr; sign a document to generate a TSA token. It will appear here automatically.</p>
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"
+            stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10" />
+            <polyline points="12 6 12 12 16 14" />
+          </svg>
+          <p style="font-size:.8125rem; margin-top:8px;">Go to Dashboard &rarr; sign a document to generate a TSA token.
+            It will appear here automatically.</p>
         </div>
         <div id="tsa-info" style="display:none;">
           <table style="width:100%; border-collapse:collapse;">
-            <tr><td style="padding:6px 0; border-bottom:1px solid var(--border); color:var(--text-2); font-size:.8125rem; width:45%;">Signing Time</td><td id="tsa-timestamp" style="padding:6px 0; border-bottom:1px solid var(--border); font-size:.8125rem; font-weight:500;"></td></tr>
-            <tr><td style="padding:6px 0; border-bottom:1px solid var(--border); color:var(--text-2); font-size:.8125rem;">Authority</td><td id="tsa-name" style="padding:6px 0; border-bottom:1px solid var(--border); font-size:.8125rem; font-weight:500;"></td></tr>
-            <tr><td style="padding:6px 0; border-bottom:1px solid var(--border); color:var(--text-2); font-size:.8125rem;">Hash</td><td style="padding:6px 0; border-bottom:1px solid var(--border);"><code id="tsa-hash" class="mono"></code></td></tr>
-            <tr><td style="padding:6px 0; color:var(--text-2); font-size:.8125rem;">Valid</td><td id="tsa-valid" style="padding:6px 0;"></td></tr>
+            <tr>
+              <td
+                style="padding:6px 0; border-bottom:1px solid var(--border); color:var(--text-2); font-size:.8125rem; width:45%;">
+                Signing Time</td>
+              <td id="tsa-timestamp"
+                style="padding:6px 0; border-bottom:1px solid var(--border); font-size:.8125rem; font-weight:500;"></td>
+            </tr>
+            <tr>
+              <td
+                style="padding:6px 0; border-bottom:1px solid var(--border); color:var(--text-2); font-size:.8125rem;">
+                Authority</td>
+              <td id="tsa-name"
+                style="padding:6px 0; border-bottom:1px solid var(--border); font-size:.8125rem; font-weight:500;"></td>
+            </tr>
+            <tr>
+              <td
+                style="padding:6px 0; border-bottom:1px solid var(--border); color:var(--text-2); font-size:.8125rem;">
+                Hash</td>
+              <td style="padding:6px 0; border-bottom:1px solid var(--border);"><code id="tsa-hash" class="mono"></code>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:6px 0; color:var(--text-2); font-size:.8125rem;">Valid</td>
+              <td id="tsa-valid" style="padding:6px 0;"></td>
+            </tr>
           </table>
         </div>
       </div>
@@ -185,12 +317,17 @@
     <!-- Merkle -->
     <div class="v-card">
       <div class="v-card-header">
-        <svg class="v-card-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        <svg class="v-card-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+          stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="12" y1="5" x2="12" y2="19" />
+          <line x1="5" y1="12" x2="19" y2="12" />
+        </svg>
         <span class="v-card-title">Merkle Tree Integrity</span>
       </div>
       <div class="v-card-body gap">
         <!-- Issue 3: improved description -->
-        <p style="font-size:.8125rem; color:var(--text-2); margin:0;">Compare an original document and a modified version to identify chunk-level integrity changes using Merkle Trees.</p>
+        <p style="font-size:.8125rem; color:var(--text-2); margin:0;">Compare an original document and a modified
+          version to identify chunk-level integrity changes using Merkle Trees.</p>
         <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
           <div>
             <!-- Issue 3: help labels -->
@@ -200,24 +337,56 @@
           </div>
           <div>
             <label class="v-label">Modified File</label>
-            <p style="font-size:.6875rem; color:var(--text-2); margin-bottom:4px;">A changed version to test integrity detection.</p>
+            <p style="font-size:.6875rem; color:var(--text-2); margin-bottom:4px;">A changed version to test integrity
+              detection.</p>
             <input type="file" id="merkle-file2" class="v-input" />
           </div>
         </div>
         <button id="btn-merkle-compare" class="v-btn v-btn-neutral">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="12" y1="5" x2="12" y2="19" />
+            <line x1="5" y1="12" x2="19" y2="12" />
+          </svg>
           Compare Trees
         </button>
 
         <div id="merkle-result" style="display:none;">
           <table style="width:100%; border-collapse:collapse; margin-bottom:12px;">
-            <tr><td style="padding:5px 0; border-bottom:1px solid var(--border); color:var(--text-2); font-size:.75rem; width:50%;">Original Root</td><td style="padding:5px 0; border-bottom:1px solid var(--border);"><code id="merkle-orig-root" class="mono"></code></td></tr>
-            <tr><td style="padding:5px 0; border-bottom:1px solid var(--border); color:var(--text-2); font-size:.75rem;">Modified Root</td><td style="padding:5px 0; border-bottom:1px solid var(--border);"><code id="merkle-mod-root" class="mono"></code></td></tr>
-            <tr><td style="padding:5px 0; border-bottom:1px solid var(--border); color:var(--text-2); font-size:.75rem;">Roots Match</td><td id="merkle-match" style="padding:5px 0; border-bottom:1px solid var(--border);"></td></tr>
-            <tr><td style="padding:5px 0; border-bottom:1px solid var(--border); color:var(--text-2); font-size:.75rem;">Orig Chunks</td><td id="merkle-orig-chunks" style="padding:5px 0; border-bottom:1px solid var(--border); font-size:.8125rem; font-weight:500;"></td></tr>
-            <tr><td style="padding:5px 0; border-bottom:1px solid var(--border); color:var(--text-2); font-size:.75rem;">Mod Chunks</td><td id="merkle-mod-chunks" style="padding:5px 0; border-bottom:1px solid var(--border); font-size:.8125rem; font-weight:500;"></td></tr>
+            <tr>
+              <td
+                style="padding:5px 0; border-bottom:1px solid var(--border); color:var(--text-2); font-size:.75rem; width:50%;">
+                Original Root</td>
+              <td style="padding:5px 0; border-bottom:1px solid var(--border);"><code id="merkle-orig-root"
+                  class="mono"></code></td>
+            </tr>
+            <tr>
+              <td style="padding:5px 0; border-bottom:1px solid var(--border); color:var(--text-2); font-size:.75rem;">
+                Modified Root</td>
+              <td style="padding:5px 0; border-bottom:1px solid var(--border);"><code id="merkle-mod-root"
+                  class="mono"></code></td>
+            </tr>
+            <tr>
+              <td style="padding:5px 0; border-bottom:1px solid var(--border); color:var(--text-2); font-size:.75rem;">
+                Roots Match</td>
+              <td id="merkle-match" style="padding:5px 0; border-bottom:1px solid var(--border);"></td>
+            </tr>
+            <tr>
+              <td style="padding:5px 0; border-bottom:1px solid var(--border); color:var(--text-2); font-size:.75rem;">
+                Orig Chunks</td>
+              <td id="merkle-orig-chunks"
+                style="padding:5px 0; border-bottom:1px solid var(--border); font-size:.8125rem; font-weight:500;"></td>
+            </tr>
+            <tr>
+              <td style="padding:5px 0; border-bottom:1px solid var(--border); color:var(--text-2); font-size:.75rem;">
+                Mod Chunks</td>
+              <td id="merkle-mod-chunks"
+                style="padding:5px 0; border-bottom:1px solid var(--border); font-size:.8125rem; font-weight:500;"></td>
+            </tr>
             <!-- Issue 3: Changed Chunks with indices -->
-            <tr><td style="padding:5px 0; color:var(--text-2); font-size:.75rem;">Changed Chunks</td><td id="merkle-mismatch-count" style="padding:5px 0;"></td></tr>
+            <tr>
+              <td style="padding:5px 0; color:var(--text-2); font-size:.75rem;">Changed Chunks</td>
+              <td id="merkle-mismatch-count" style="padding:5px 0;"></td>
+            </tr>
           </table>
           <canvas id="merkleChart" height="120" style="display:none;"></canvas>
         </div>
@@ -228,6 +397,42 @@
 </div>
 
 {% endblock %}
+
+<!-- ── Revoke Certificate Confirmation Modal ──────────────────────────────── -->
+<div id="revokeModal"
+  style="display:none; position:fixed; inset:0; z-index:500; background:rgba(30,30,30,.45);
+         align-items:center; justify-content:center;">
+  <div class="v-card" style="width:100%; max-width:420px; box-shadow:0 8px 32px rgba(0,0,0,.15);">
+    <div class="v-card-header">
+      <svg class="v-card-icon" width="16" height="16" viewBox="0 0 24 24" fill="none"
+        stroke="var(--err)" stroke-width="2">
+        <circle cx="12" cy="12" r="10"/>
+        <line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/>
+      </svg>
+      <span class="v-card-title" style="color:var(--err);">Revoke Certificate?</span>
+    </div>
+    <div class="v-card-body gap">
+      <p style="font-size:.875rem; color:var(--text-2); margin:0;">
+        This certificate will no longer be trusted by the system.
+        All future verifications signed with it will fail.
+      </p>
+      <p style="font-size:.8125rem; font-weight:600; color:var(--err); margin:0;">This action cannot be undone.</p>
+      <div style="display:flex; gap:10px; justify-content:flex-end; margin-top:4px;">
+        <button id="btn-confirm-revoke" class="v-btn v-btn-danger" style="width:auto;">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10"/>
+            <line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/>
+          </svg>
+          Revoke
+        </button>
+        <button class="v-btn v-btn-neutral" style="width:auto;"
+          onclick="document.getElementById('revokeModal').style.display='none'">
+          Cancel
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
 
 {% block scripts %}
 <script src="{{ url_for('static', filename='js/analysis.js') }}"></script>
