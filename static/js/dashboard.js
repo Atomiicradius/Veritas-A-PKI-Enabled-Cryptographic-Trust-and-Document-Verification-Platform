@@ -6,6 +6,24 @@ let hashIsHex = true;
 let perfBenchMode = "file_size";
 let perfChart = null;
 
+/* ── Shared inline error helper (Phase 4 — replaces all alert()) ── */
+function showInlineError(elementId, message) {
+  const el = document.getElementById(elementId);
+  if (!el) return;
+  // If element has a child span for the message, set that; else set textContent
+  const msgSpan = el.querySelector("span[id$='-msg']") || el.querySelector("span");
+  if (msgSpan) msgSpan.textContent = message;
+  else el.childNodes[el.childNodes.length - 1].textContent = " " + message;
+  el.style.display = "flex";
+  // Auto-hide after 6 seconds
+  clearTimeout(el._hideTimer);
+  el._hideTimer = setTimeout(() => el.style.display = "none", 6000);
+}
+function hideInlineError(elementId) {
+  const el = document.getElementById(elementId);
+  if (el) el.style.display = "none";
+}
+
 /* ── File Upload ─────────────────────────────────────────────────── */
 const dropZone    = document.getElementById("drop-zone");
 const fileInput   = document.getElementById("file-input");
@@ -24,17 +42,28 @@ function setFile(f) {
   uploadedFile = f;
   fileNameDiv.textContent = f.name + " (" + (f.size / 1024).toFixed(1) + " KB)";
   fileNameDiv.style.color = "var(--ok)";
+  hideInlineError("file-error");
 }
 
-/* ── Show/hide verifier block ────────────────────────────────────── */
+/* ─────────────────────────────────────────────────────────────────
+   BUG-02/03 FIX: btn-verify ONLY shows the verifier block.
+   The actual API call is fired by btn-run-verify (inside the block).
+   ──────────────────────────────────────────────────────────────── */
 document.getElementById("btn-verify").addEventListener("click", () => {
   document.getElementById("verifier-block").style.display = "";
   document.getElementById("sig-upload-block").style.display = "";
+  hideInlineError("verify-error");
 });
 
 /* ── Sign ────────────────────────────────────────────────────────── */
 document.getElementById("btn-sign").addEventListener("click", async () => {
-  if (!uploadedFile) return alert("Please upload a file first.");
+  // BUG-01 FIX: inline error instead of alert()
+  if (!uploadedFile) {
+    showInlineError("file-error", "Please upload a file first.");
+    return;
+  }
+  hideInlineError("file-error");
+
   const user     = document.getElementById("user-select").value;
   const keySize  = document.querySelector("input[name='key-size']:checked").value;
   const hashAlgo = document.querySelector("input[name='hash-algo']:checked").value;
@@ -59,8 +88,18 @@ document.getElementById("btn-sign").addEventListener("click", async () => {
     showSigInfo(data.sig_info);
     renderPipeline(data.pipeline);
     showDownloadLink(data.sig_id);
-    showV2Info(data);           // v2: Trust chain badges
-    // Populate TSA panel on Analysis page if it is loaded in the same tab
+    // UX-03 FIX: show copyable sig_id
+    showSigIdDisplay(data.sig_id);
+    showV2Info(data);
+
+    // BUG-04 FIX: persist TSA token in localStorage for Analysis page
+    if (data.tsa_token) {
+      try {
+        localStorage.setItem("lastTsaToken", JSON.stringify(data.tsa_token));
+        localStorage.setItem("lastTsaValid", "null"); // sign doesn't validate yet
+      } catch (_) {}
+    }
+    // Populate TSA panel on Analysis page if loaded in the same session
     if (typeof window.populateTsaPanel === "function") {
       window.populateTsaPanel(data.tsa_token, null);
     }
@@ -70,12 +109,23 @@ document.getElementById("btn-sign").addEventListener("click", async () => {
   }
 });
 
-/* ── Verify ──────────────────────────────────────────────────────── */
-document.getElementById("btn-verify").addEventListener("click", async () => {
-  if (!uploadedFile) return alert("Please upload a file first.");
+/* ── Run Verification (dedicated button inside verifier-block) ─── */
+/* BUG-02/03 FIX: this is the ONLY handler that calls /api/verify   */
+document.getElementById("btn-run-verify").addEventListener("click", async () => {
+  // Validate file first
+  if (!uploadedFile) {
+    showInlineError("verify-error", "Please upload a file first.");
+    return;
+  }
+  const sigFileInput = document.getElementById("sig-file-input");
+  if (!sigFileInput.files[0] && !currentSigId) {
+    showInlineError("verify-error", "Upload a .sig file or sign a document first.");
+    return;
+  }
+  hideInlineError("verify-error");
+
   const verifierUser = document.getElementById("verifier-user-select").value;
   const hashAlgo     = document.querySelector("input[name='hash-algo']:checked").value;
-  const sigFileInput = document.getElementById("sig-file-input");
 
   const fd = new FormData();
   fd.append("file", uploadedFile);
@@ -84,10 +134,8 @@ document.getElementById("btn-verify").addEventListener("click", async () => {
 
   if (sigFileInput.files[0]) {
     fd.append("sig_file", sigFileInput.files[0]);
-  } else if (currentSigId) {
-    fd.append("sig_id", currentSigId);
   } else {
-    return alert("Please upload a .sig file or sign first.");
+    fd.append("sig_id", currentSigId);
   }
 
   setStatus("Verifying signature…", "info");
@@ -102,13 +150,18 @@ document.getElementById("btn-verify").addEventListener("click", async () => {
     showHashDisplay(data.file_hash);
     showSigInfo(data.sig_info);
     renderPipeline(data.pipeline);
-    showV2Info(data);           // v2: Trust chain badges
-    // Populate TSA panel on Analysis page if loaded
+    showV2Info(data);
+
+    // BUG-04: persist TSA from verify result too
+    const verifyTsa = data.sig_info && data.sig_info.tsa_token;
+    if (verifyTsa) {
+      try {
+        localStorage.setItem("lastTsaToken", JSON.stringify(verifyTsa));
+        localStorage.setItem("lastTsaValid", JSON.stringify(data.timestamp_valid));
+      } catch (_) {}
+    }
     if (typeof window.populateTsaPanel === "function") {
-      window.populateTsaPanel(
-        data.sig_info && data.sig_info.tsa_token,
-        data.timestamp_valid
-      );
+      window.populateTsaPanel(verifyTsa, data.timestamp_valid);
     }
     setStatus(isValid ? "Signature is valid." : "Signature is INVALID — document may have been tampered.", isValid ? "success" : "danger");
   } catch (e) {
@@ -118,7 +171,11 @@ document.getElementById("btn-verify").addEventListener("click", async () => {
 
 /* ── Tamper ──────────────────────────────────────────────────────── */
 document.getElementById("btn-tamper").addEventListener("click", async () => {
-  if (!uploadedFile) return alert("Please upload a file first.");
+  if (!uploadedFile) {
+    showInlineError("file-error", "Please upload a file first.");
+    return;
+  }
+  hideInlineError("file-error");
 
   const fd = new FormData();
   fd.append("file", uploadedFile);
@@ -135,7 +192,6 @@ document.getElementById("btn-tamper").addEventListener("click", async () => {
 
     if (data.avalanche) {
       showAvalancheTab(data.avalanche);
-      // Switch to avalanche tab
       document.querySelector('[data-target="#tab-avalanche"]').click();
     }
 
@@ -156,7 +212,16 @@ document.getElementById("btn-tamper").addEventListener("click", async () => {
 document.getElementById("btn-run-compare").addEventListener("click", async () => {
   const f1 = document.getElementById("cmp-file1").files[0];
   const f2 = document.getElementById("cmp-file2").files[0];
-  if (!f1 || !f2) return alert("Select two files.");
+  // Phase 4: inline error inside modal instead of alert()
+  const cmpError = document.getElementById("cmp-error");
+  if (!f1 || !f2) {
+    if (cmpError) {
+      cmpError.textContent = "Please select both files before comparing.";
+      cmpError.style.display = "flex";
+    }
+    return;
+  }
+  if (cmpError) cmpError.style.display = "none";
 
   const fd = new FormData();
   fd.append("file1", f1);
@@ -165,7 +230,10 @@ document.getElementById("btn-run-compare").addEventListener("click", async () =>
   try {
     const res  = await fetch("/api/compare", { method: "POST", body: fd });
     const data = await res.json();
-    if (data.error) return alert(data.error);
+    if (data.error) {
+      if (cmpError) { cmpError.textContent = data.error; cmpError.style.display = "flex"; }
+      return;
+    }
 
     document.getElementById("cmp-hash1").textContent = data.hash1;
     document.getElementById("cmp-hash2").textContent = data.hash2;
@@ -175,7 +243,7 @@ document.getElementById("btn-run-compare").addEventListener("click", async () =>
     renderAvalancheGrid("cmp-avalanche-grid", data.avalanche.cells);
     document.getElementById("cmp-result").style.display = "";
   } catch (e) {
-    alert("Error: " + e.message);
+    if (cmpError) { cmpError.textContent = "Error: " + e.message; cmpError.style.display = "flex"; }
   }
 });
 
@@ -235,7 +303,6 @@ document.getElementById("btn-toggle-hash").addEventListener("click", () => {
 function setStatus(msg, type) {
   const bar = document.getElementById("status-bar");
   bar.className = "status-bar " + (type === "warning" ? "info" : type);
-  // update the text node inside the <span>
   const span = bar.querySelector("span") || bar;
   span.textContent = msg;
   bar.style.display = "flex";
@@ -265,6 +332,12 @@ function showTamperDetails(info) {
   document.getElementById("td-pos").textContent  = info.position;
   document.getElementById("td-orig").textContent = "0x" + info.original_hex;
   document.getElementById("td-new").textContent  = "0x" + info.new_hex;
+}
+
+/* UX-03 FIX: show copyable signature ID */
+function showSigIdDisplay(sigId) {
+  document.getElementById("sig-id-display").style.display = "";
+  document.getElementById("sig-id-value").textContent = sigId;
 }
 
 function showDownloadLink(sigId) {
@@ -367,7 +440,6 @@ function renderAttackTable(containerId, levels) {
 
 /* ── v2: Trust Chain summary in Right Panel ────────────────────── */
 function showV2Info(data) {
-  // Reuse or create the v2 block inside the right panel card-body
   let v2Block = document.getElementById("v2-info-block");
   if (!v2Block) {
     v2Block = document.createElement("div");
@@ -376,15 +448,14 @@ function showV2Info(data) {
     parent.appendChild(v2Block);
   }
 
-  const certValid  = data.certificate_valid;         // bool or null
-  const tsaValid   = data.timestamp_valid;           // bool or null
+  const certValid  = data.certificate_valid;
+  const tsaValid   = data.timestamp_valid;
   const merkle     = data.merkle_verify || {};
   const cert       = data.certificate || (data.sig_info && data.sig_info.cert_id ? { cert_id: data.sig_info.cert_id } : null);
   const tsa        = data.tsa_token   || (data.sig_info && data.sig_info.tsa_token);
   const merkleRoot = data.merkle_root || (data.sig_info && data.sig_info.merkle_root);
   const certId     = cert && cert.cert_id ? cert.cert_id : null;
 
-  /* ── Helper: one trust row ──────────────────────── */
   function row(icon, label, status, sub) {
     const badgeCls = status === "ok" ? "ok" : status === "err" ? "err" : "pending";
     const iconSvg  = status === "ok"
@@ -398,16 +469,13 @@ function showV2Info(data) {
     </div>`;
   }
 
-  /* ── Build trust chain rows ───────────────────────── */
   const certStatus    = certValid === true  ? "ok" : certValid === false ? "err" : "pending";
   const tsaStatus     = tsaValid  === true  ? "ok" : tsaValid  === false ? "err" : (tsa ? "pending" : "pending");
   const merkleStatus  = merkle.merkle_matches === true  ? "ok" :
                         merkle.merkle_matches === false ? "err" :
                         merkleRoot ? "pending" : "pending";
-  // RSA signature status derived from the overall result badge
   const rsaStatus     = data.valid === true ? "ok" : data.valid === false ? "err" : (data.status === "signed" ? "ok" : "pending");
 
-  /* Cert ID: truncated + copy button */
   const certIdHtml = certId
     ? `<div style="font-size:.6875rem;color:var(--text-2);margin-top:6px;">
         Cert ID: <code class="mono" style="font-size:.625rem;">${certId.slice(0, 16)}…</code>
@@ -417,12 +485,10 @@ function showV2Info(data) {
        </div>`
     : "";
 
-  /* TSA time */
   const tsaTimeHtml = tsa && tsa.timestamp
     ? `<div style="font-size:.6875rem;color:var(--text-2);margin-top:2px;">Signed: ${tsa.timestamp.replace("T"," ").slice(0,19)} UTC</div>`
     : "";
 
-  /* Merkle chunks */
   const chunkCount = data.chunk_count || (data.sig_info && data.sig_info.chunk_count);
   const merkleHtml = chunkCount
     ? `<div style="font-size:.6875rem;color:var(--text-2);margin-top:2px;">${chunkCount} chunk${chunkCount !== 1 ? "s" : ""} verified</div>`
@@ -445,14 +511,12 @@ function showV2Info(data) {
 /* ── Global clipboard helper ─────────────────────────── */
 function copyToClipboard(text) {
   navigator.clipboard.writeText(text).then(() => {
-    // Brief visual confirmation
     const tip = document.createElement("span");
     tip.textContent = " Copied!";
     tip.style.cssText = "font-size:.7rem;color:var(--ok);margin-left:4px;";
     document.activeElement.parentNode.appendChild(tip);
     setTimeout(() => tip.remove(), 1800);
   }).catch(() => {
-    // Fallback for older browsers
     const el = document.createElement("textarea");
     el.value = text;
     document.body.appendChild(el);

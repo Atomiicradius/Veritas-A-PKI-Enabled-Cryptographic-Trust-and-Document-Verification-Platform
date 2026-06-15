@@ -2,6 +2,21 @@
 {% block title %}Analysis — Veritas{% endblock %}
 
 {% block content %}
+<!-- benchmark summary card styles (scoped) -->
+<style>
+.bench-cards { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin-top:14px; }
+.bench-card  { background:var(--bg-subtle); border:1.5px solid var(--border); border-radius:var(--radius-sm);
+               padding:10px 14px; display:none; }
+.bench-card.visible { display:block; animation: cardFadeIn .45s ease both; }
+@keyframes cardFadeIn { from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:none} }
+.bench-card-label { font-size:.6rem; font-weight:700; letter-spacing:.09em; text-transform:uppercase;
+                    color:var(--text-2); margin-bottom:4px; }
+.bench-card-value { font-size:1.05rem; font-weight:700; color:var(--navy); line-height:1.2; }
+.bench-card-sub   { font-size:.7rem; color:var(--text-2); margin-top:2px; }
+.bench-card.card-ok   { border-color:var(--ok,#557A5B);  }
+.bench-card.card-warn { border-color:var(--warn,#C6A26B); }
+.bench-card.card-info { border-color:var(--slate,#4F647A); }
+</style>
 
 <!-- Page heading -->
 <div style="margin-bottom:28px;">
@@ -41,6 +56,24 @@
           <span id="bench-fs-status" class="bench-status"></span>
         </div>
         <canvas id="fileSizeChart" height="200"></canvas>
+        <!-- File-size benchmark summary cards (populated by JS) -->
+        <div class="bench-cards" id="fs-summary-cards">
+          <div class="bench-card card-ok" id="fs-card-fastest">
+            <div class="bench-card-label">⚡ Fastest Hash</div>
+            <div class="bench-card-value" id="fs-fastest-val">—</div>
+            <div class="bench-card-sub" id="fs-fastest-sub"></div>
+          </div>
+          <div class="bench-card card-info" id="fs-card-sign">
+            <div class="bench-card-label">✍ Avg Sign Time</div>
+            <div class="bench-card-value" id="fs-sign-val">—</div>
+            <div class="bench-card-sub">across all file sizes</div>
+          </div>
+          <div class="bench-card card-warn" id="fs-card-verify">
+            <div class="bench-card-label">🔍 Avg Verify Time</div>
+            <div class="bench-card-value" id="fs-verify-val">—</div>
+            <div class="bench-card-sub">across all file sizes</div>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -65,6 +98,24 @@
           <span id="bench-ks-status" class="bench-status"></span>
         </div>
         <canvas id="keySizeChart" height="200"></canvas>
+        <!-- Key-size benchmark summary cards (populated by JS) -->
+        <div class="bench-cards" id="ks-summary-cards">
+          <div class="bench-card card-ok" id="ks-card-fastest">
+            <div class="bench-card-label">⚡ Fastest Signing Key</div>
+            <div class="bench-card-value" id="ks-fastest-val">—</div>
+            <div class="bench-card-sub" id="ks-fastest-sub"></div>
+          </div>
+          <div class="bench-card card-warn" id="ks-card-secure">
+            <div class="bench-card-label">🔒 Most Secure Key</div>
+            <div class="bench-card-value" id="ks-secure-val">—</div>
+            <div class="bench-card-sub">higher bit-count = stronger security</div>
+          </div>
+          <div class="bench-card card-info" id="ks-card-rec">
+            <div class="bench-card-label">★ Recommended Key</div>
+            <div class="bench-card-value" id="ks-rec-val">—</div>
+            <div class="bench-card-sub" id="ks-rec-sub">NIST recommendation</div>
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -179,12 +230,19 @@
         <div id="pki-status-result" style="display:none;">
           <table style="width:100%; border-collapse:collapse;">
             <tr>
+              <td style="padding:6px 0; border-bottom:1px solid var(--border); color:var(--text-2); font-size:.8125rem; width:45%;">
+                Certificate ID</td>
+              <td id="pki-cert-id-row"
+                style="padding:6px 0; border-bottom:1px solid var(--border); font-size:.75rem;"></td>
+            </tr>
+            <tr>
               <td
                 style="padding:6px 0; border-bottom:1px solid var(--border); color:var(--text-2); font-size:.8125rem; width:45%;">
                 Subject</td>
               <td id="pki-subject"
                 style="padding:6px 0; border-bottom:1px solid var(--border); font-size:.8125rem; font-weight:500;"></td>
             </tr>
+
             <tr>
               <td
                 style="padding:6px 0; border-bottom:1px solid var(--border); color:var(--text-2); font-size:.8125rem;">
@@ -396,12 +454,11 @@
   </div>
 </div>
 
-{% endblock %}
 
-<!-- ── Revoke Certificate Confirmation Modal ──────────────────────────────── -->
+<!-- Revoke Certificate Confirmation Modal (inside content block so Jinja renders it) -->
 <div id="revokeModal"
-  style="display:none; position:fixed; inset:0; z-index:500; background:rgba(30,30,30,.45);
-         align-items:center; justify-content:center;">
+  style="display:none; position:fixed; inset:0; z-index:500;
+         background:rgba(30,30,30,.45); align-items:center; justify-content:center;">
   <div class="v-card" style="width:100%; max-width:420px; box-shadow:0 8px 32px rgba(0,0,0,.15);">
     <div class="v-card-header">
       <svg class="v-card-icon" width="16" height="16" viewBox="0 0 24 24" fill="none"
@@ -433,6 +490,8 @@
     </div>
   </div>
 </div>
+
+{% endblock %}
 
 {% block scripts %}
 <script src="{{ url_for('static', filename='js/analysis.js') }}"></script>

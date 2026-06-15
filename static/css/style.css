@@ -194,6 +194,20 @@ a { color: inherit; text-decoration: none; }
 .v-btn-sm { padding: 5px 12px; font-size: .75rem; width: auto; }
 .v-btn-info { background: transparent; color: var(--slate); border-color: var(--border-md); }
 .v-btn-info:hover { background: #EBF0F5; color: var(--navy); border-color: var(--slate); }
+.v-btn-danger { background: transparent; color: var(--err); border-color: var(--err); }
+.v-btn-danger:hover { background: #FDF0F0; border-color: #7a4b4b; color: #7a4b4b; }
+
+/* ── Inline validation error ─────────────────────────────────────────────── */
+.v-error {
+  display: flex; align-items: center; gap: 6px;
+  padding: 7px 11px;
+  background: #FDF0F0;
+  border: 1px solid #e8c4c4;
+  border-radius: var(--radius-sm);
+  font-size: .8rem;
+  color: var(--err);
+  margin-top: 6px;
+}
 
 /* ── Drop Zone ──────────────────────────────────────────────────────────── */
 .drop-zone {

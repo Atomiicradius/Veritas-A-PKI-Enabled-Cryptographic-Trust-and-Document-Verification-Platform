@@ -21,6 +21,10 @@
           Browse <input type="file" id="file-input" hidden />
         </label>
         <div id="file-name" style="margin-top:8px; font-size:.75rem; color:var(--ok); font-weight:600;"></div>
+        <div id="file-error" class="v-error" style="display:none;">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+          Please upload a file first.
+        </div>
       </div>
 
       <!-- User select -->
@@ -76,7 +80,7 @@
         </button>
       </div>
 
-      <!-- Verifier block (shown on verify) -->
+      <!-- Verifier block (shown on Verify Document click) -->
       <div id="verifier-block" style="display:none;">
         <label class="v-label" for="verifier-user-select">Verifier's Public Key</label>
         <select id="verifier-user-select" class="v-input v-select">
@@ -85,10 +89,20 @@
         </select>
       </div>
 
-      <!-- Sig upload block (shown on verify) -->
+      <!-- Sig upload block (shown on Verify Document click) -->
       <div id="sig-upload-block" style="display:none;">
-        <label class="v-label">Signature File (.sig)</label>
+        <label class="v-label">Signature File (.sig)
+          <span style="color:var(--text-3); font-weight:400;"> — or use sig_id from a previous sign</span>
+        </label>
         <input type="file" id="sig-file-input" class="v-input" accept=".sig,.json" />
+        <div id="verify-error" class="v-error" style="display:none;">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+          <span id="verify-error-msg"></span>
+        </div>
+        <button id="btn-run-verify" class="v-btn v-btn-ok" style="margin-top:10px;">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+          Run Verification
+        </button>
       </div>
 
     </div>
@@ -243,6 +257,18 @@
         </table>
       </div>
 
+      <!-- Signature ID display (copyable) -->
+      <div id="sig-id-display" style="display:none;">
+        <label class="v-label" style="margin-bottom:6px;">Signature ID</label>
+        <div style="display:flex; align-items:center; gap:6px; background:var(--bg-subtle); border:1px solid var(--border); border-radius:var(--radius-sm); padding:6px 10px;">
+          <code id="sig-id-value" class="mono" style="flex:1; font-size:.6875rem; word-break:break-all; color:var(--slate);"></code>
+          <button onclick="window.copyToClipboard(document.getElementById('sig-id-value').textContent)" title="Copy Signature ID"
+            style="background:none; border:none; cursor:pointer; color:var(--slate); padding:0; flex-shrink:0; display:flex; align-items:center;">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+          </button>
+        </div>
+      </div>
+
       <!-- Download -->
       <div id="download-sig-block" style="display:none;">
         <a id="download-sig-link" class="v-btn v-btn-neutral" href="#" target="_blank">
@@ -300,6 +326,9 @@
         <div style="text-align:center; font-size:.8125rem; color:var(--text-2);">Avalanche: <strong id="cmp-flip-pct" class="text-err"></strong>% bits flipped</div>
       </div>
 
+      <div id="cmp-error" class="v-error" style="display:none;">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+      </div>
       <div style="display:flex; gap:10px; justify-content:flex-end;">
         <button type="button" id="btn-run-compare" class="v-btn v-btn-primary" style="width:auto;">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
@@ -307,6 +336,7 @@
         </button>
         <button type="button" class="v-btn v-btn-neutral" style="width:auto;" onclick="document.getElementById('compareModal').style.display='none'">Cancel</button>
       </div>
+
     </div>
   </div>
 </div>

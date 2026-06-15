@@ -1,9 +1,18 @@
 /* Analysis page JS */
 
+/* ── Utility: set a summary-card value element ───────────────────────────── */
+function _setCard(id, text) {
+  const el = document.getElementById(id);
+  if (el) el.textContent = text;
+}
+
+
 /* ── File Size Benchmark ─────────────────────────────────────────── */
 document.getElementById("btn-bench-filesize").addEventListener("click", async () => {
   const status = document.getElementById("bench-fs-status");
-  status.textContent = "Running (may take ~15 seconds)…";
+  const btn    = document.getElementById("btn-bench-filesize");
+  btn.disabled = true;
+  status.textContent = "Running — 50 iterations × 6 file sizes (may take ~20 s)…";
   try {
     const res  = await fetch("/api/performance", {
       method: "POST",
@@ -15,22 +24,63 @@ document.getElementById("btn-bench-filesize").addEventListener("click", async ()
 
     const results = data.results;
     const labels  = results.map(r => r.file_size_kb + " KB");
+
     buildPerfChart("fileSizeChart", labels, [
-      { label: "Hashing",      data: results.map(r => r.hash_avg),   borderColor: "#6c757d", tension: 0.3 },
-      { label: "Signing",      data: results.map(r => r.sign_avg),   borderColor: "#0d6efd", tension: 0.3 },
-      { label: "Verification", data: results.map(r => r.verify_avg), borderColor: "#198754", tension: 0.3 },
+      {
+        label: "Hashing",
+        data:  results.map(r => r.hash_avg),
+        extra: {
+          min: results.map(r => r.hash_min),
+          max: results.map(r => r.hash_max),
+          err: results.map(r => r.hash_err),
+        },
+      },
+      {
+        label: "Signing",
+        data:  results.map(r => r.sign_avg),
+        extra: {
+          min: results.map(r => r.sign_min),
+          max: results.map(r => r.sign_max),
+          err: results.map(r => r.sign_err),
+        },
+      },
+      {
+        label: "Verification",
+        data:  results.map(r => r.verify_avg),
+        extra: {
+          min: results.map(r => r.verify_min),
+          max: results.map(r => r.verify_max),
+          err: results.map(r => r.verify_err),
+        },
+      },
     ]);
     document.getElementById("fileSizeChart").dataset.xlabel = "File Size";
-    status.textContent = "Done. Averaged over 5 runs per file size.";
+
+    /* ── Populate file-size summary cards ── */
+    const fastestIdx  = results.reduce((bi, r, i) => r.hash_avg < results[bi].hash_avg ? i : bi, 0);
+    const avgSign     = results.reduce((s, r) => s + r.sign_avg, 0) / results.length;
+    const avgVerify   = results.reduce((s, r) => s + r.verify_avg, 0) / results.length;
+
+    _setCard("fs-fastest-val", results[fastestIdx].hash_avg.toFixed(3) + " ms");
+    _setCard("fs-fastest-sub", "at " + results[fastestIdx].file_size_kb + " KB");
+    _setCard("fs-sign-val",    avgSign.toFixed(3) + " ms");
+    _setCard("fs-verify-val",  avgVerify.toFixed(3) + " ms");
+    document.querySelectorAll("#fs-summary-cards .bench-card").forEach(el => el.classList.add("visible"));
+
+    status.textContent = "Done. Averaged over 50 warm-up-excluded runs per file size.";
   } catch (e) {
     status.textContent = "Failed: " + e.message;
+  } finally {
+    btn.disabled = false;
   }
 });
 
 /* ── Key Size Benchmark ──────────────────────────────────────────── */
 document.getElementById("btn-bench-keysize").addEventListener("click", async () => {
   const status = document.getElementById("bench-ks-status");
-  status.textContent = "Running (generating keys for each size)…";
+  const btn    = document.getElementById("btn-bench-keysize");
+  btn.disabled = true;
+  status.textContent = "Running — 50 iterations × 2 key sizes (may take ~30 s)…";
   try {
     const res  = await fetch("/api/performance", {
       method: "POST",
@@ -43,12 +93,44 @@ document.getElementById("btn-bench-keysize").addEventListener("click", async () 
     const results = data.results;
     const labels  = results.map(r => r.key_size + "-bit");
     buildPerfChart("keySizeChart", labels, [
-      { label: "Signing",      data: results.map(r => r.sign_avg),   borderColor: "#0d6efd", tension: 0.3, fill: false },
-      { label: "Verification", data: results.map(r => r.verify_avg), borderColor: "#198754", tension: 0.3, fill: false },
+      {
+        label: "Signing",
+        data:  results.map(r => r.sign_avg),
+        extra: {
+          min: results.map(r => r.sign_min),
+          max: results.map(r => r.sign_max),
+          err: results.map(r => r.sign_err),
+        },
+      },
+      {
+        label: "Verification",
+        data:  results.map(r => r.verify_avg),
+        extra: {
+          min: results.map(r => r.verify_min),
+          max: results.map(r => r.verify_max),
+          err: results.map(r => r.verify_err),
+        },
+      },
     ]);
-    status.textContent = "Done. Averaged over 5 runs per key size.";
+
+    /* ── Populate key-size summary cards ── */
+    const fastestIdx = results.reduce((bi, r, i) => r.sign_avg < results[bi].sign_avg ? i : bi, 0);
+    const securestIdx = results.reduce((bi, r, i) => r.key_size > results[bi].key_size ? i : bi, 0);
+    // NIST recommends ≥ 2048-bit RSA
+    const recR = results.find(r => r.key_size >= 2048) || results[results.length - 1];
+
+    _setCard("ks-fastest-val", results[fastestIdx].key_size + "-bit");
+    _setCard("ks-fastest-sub", results[fastestIdx].sign_avg.toFixed(3) + " ms avg sign");
+    _setCard("ks-secure-val",  results[securestIdx].key_size + "-bit");
+    _setCard("ks-rec-val",     recR.key_size + "-bit");
+    _setCard("ks-rec-sub",     recR.sign_avg.toFixed(3) + " ms sign / " + recR.verify_avg.toFixed(3) + " ms verify");
+    document.querySelectorAll("#ks-summary-cards .bench-card").forEach(el => el.classList.add("visible"));
+
+    status.textContent = "Done. Averaged over 50 warm-up-excluded runs per key size.";
   } catch (e) {
     status.textContent = "Failed: " + e.message;
+  } finally {
+    btn.disabled = false;
   }
 });
 
@@ -56,7 +138,19 @@ document.getElementById("btn-bench-keysize").addEventListener("click", async () 
 document.getElementById("btn-run-avalanche").addEventListener("click", async () => {
   const f1 = document.getElementById("av-orig-file").files[0];
   const f2 = document.getElementById("av-mod-file").files[0];
-  if (!f1 || !f2) return alert("Select both original and modified files.");
+  if (!f1 || !f2) {
+    let avErr = document.getElementById("av-error");
+    if (!avErr) {
+      avErr = document.createElement("div"); avErr.id = "av-error"; avErr.className = "v-error"; avErr.style.marginBottom = "8px";
+      document.getElementById("btn-run-avalanche").parentNode.insertBefore(avErr, document.getElementById("btn-run-avalanche"));
+    }
+    avErr.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg> Select both original and modified files.';
+    avErr.style.display = "flex";
+    setTimeout(() => avErr.style.display = "none", 6000);
+    return;
+  }
+  const avErr = document.getElementById("av-error");
+  if (avErr) avErr.style.display = "none";
 
   const fd = new FormData();
   fd.append("file1", f1);
@@ -65,7 +159,11 @@ document.getElementById("btn-run-avalanche").addEventListener("click", async () 
   try {
     const res  = await fetch("/api/compare", { method: "POST", body: fd });
     const data = await res.json();
-    if (data.error) return alert(data.error);
+    if (data.error) {
+      const avErr2 = document.getElementById("av-error");
+      if (avErr2) { avErr2.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/></svg> ' + data.error; avErr2.style.display = "flex"; }
+      return;
+    }
 
     const av = data.avalanche;
     document.getElementById("av-analysis-result").style.display = "";  // fix: was classList.remove('d-none')
@@ -75,7 +173,8 @@ document.getElementById("btn-run-avalanche").addEventListener("click", async () 
     document.getElementById("av-a-flip-pct").textContent   = av.flip_percent;
     renderAvalancheGrid("av-analysis-grid", av.cells);
   } catch (e) {
-    alert("Error: " + e.message);
+    const avErr3 = document.getElementById("av-error");
+    if (avErr3) { avErr3.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/></svg> Error: ' + e.message; avErr3.style.display = "flex"; }
   }
 });
 
@@ -143,24 +242,85 @@ document.getElementById("btn-load-attack-analysis").addEventListener("click", as
   }
 });
 
-/* ═══════════════════════════════════════════════════════════════════
-   v2 additions below — all original code above is unchanged
-═══════════════════════════════════════════════════════════════════ */
+/* /* =================================================================
+   v2 additions -- inline error helper, PKI, TSA, Merkle
+================================================================= */
 
-/* \u2500\u2500 PKI: Certificate status lookup + Revoke state \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 */
-let _currentCertId = null;   // cert_id currently displayed in the panel
+/* -- Phase 4: Inline error helper for analysis page ------------- */
+function showPkiError(msg) {
+  let el = document.getElementById("pki-error");
+  if (!el) {
+    el = document.createElement("div");
+    el.id = "pki-error";
+    el.className = "v-error";
+    el.style.marginTop = "8px";
+    const inputRow = document.getElementById("pki-cert-id-input").parentNode;
+    inputRow.parentNode.insertBefore(el, inputRow.nextSibling);
+  }
+  el.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg> ' + msg;
+  el.style.display = "flex";
+  clearTimeout(el._t);
+  el._t = setTimeout(() => el.style.display = "none", 7000);
+}
+function hidePkiError() {
+  const el = document.getElementById("pki-error");
+  if (el) el.style.display = "none";
+}
+
+function showMerkleError(msg) {
+  let el = document.getElementById("merkle-error");
+  if (!el) {
+    el = document.createElement("div");
+    el.id = "merkle-error";
+    el.className = "v-error";
+    el.style.marginTop = "8px";
+    const btn = document.getElementById("btn-merkle-compare");
+    btn.parentNode.insertBefore(el, btn.nextSibling);
+  }
+  el.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg> ' + msg;
+  el.style.display = "flex";
+  clearTimeout(el._t);
+  el._t = setTimeout(() => el.style.display = "none", 7000);
+}
+
+/* -- PKI: Certificate status lookup + Revoke state -------------- */
+let _currentCertId = null;
+let _crlLoaded     = false;   // UX-07
 
 document.getElementById("btn-pki-check").addEventListener("click", async () => {
   const certId = document.getElementById("pki-cert-id-input").value.trim();
-  if (!certId) return alert("Paste a cert_id first.");
+  // BUG-06 FIX: inline error
+  if (!certId) {
+    showPkiError("Please paste a Certificate ID first.");
+    return;
+  }
+  hidePkiError();
+
   try {
     const res  = await fetch(`/api/pki/status?cert_id=${encodeURIComponent(certId)}`);
     const data = await res.json();
-    if (data.error) return alert(data.error);
+    // BUG-07 FIX: inline error instead of alert
+    if (data.error) {
+      showPkiError(data.error);
+      return;
+    }
 
     const cert = data.certificate;
     const ver  = data.verification;
     _currentCertId = cert.cert_id;
+
+    // UX-05 FIX: show cert_id in result table
+    const certIdRow = document.getElementById("pki-cert-id-row");
+    if (certIdRow) {
+      certIdRow.innerHTML =
+        `<code style="font-size:.6875rem;font-family:'IBM Plex Mono',monospace;color:var(--slate);">${cert.cert_id.slice(0,20)}\u2026</code>
+         <button onclick="copyToClipboard('${cert.cert_id}')" title="Copy full cert_id"
+           style="background:none;border:none;cursor:pointer;color:var(--slate);padding:0 2px;vertical-align:middle;">
+           <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+             <rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+           </svg>
+         </button>`;
+    }
 
     document.getElementById("pki-subject").textContent  = cert.subject;
     document.getElementById("pki-issuer").textContent   = cert.issuer;
@@ -178,9 +338,8 @@ document.getElementById("btn-pki-check").addEventListener("click", async () => {
       ? `<span class="t-badge warn">${ver.reason}</span>`
       : "";
 
-    // \u2500\u2500 Show / hide the revocation action area \u2500\u2500
-    const area        = document.getElementById("pki-revoke-area");
-    const revokeBtn   = document.getElementById("btn-pki-revoke");
+    const area         = document.getElementById("pki-revoke-area");
+    const revokeBtn    = document.getElementById("btn-pki-revoke");
     const revokedBadge = document.getElementById("pki-revoked-badge");
     area.style.display = "";
     if (ver.revoked) {
@@ -193,16 +352,16 @@ document.getElementById("btn-pki-check").addEventListener("click", async () => {
 
     document.getElementById("pki-status-result").style.display = "";
   } catch (e) {
-    alert("Error: " + e.message);
+    showPkiError("Request failed: " + e.message);
   }
 });
 
-/* \u2500\u2500 PKI: Confirm revoke \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 */
+/* -- PKI: Confirm revoke --------------------------------------- */
 document.getElementById("btn-confirm-revoke").addEventListener("click", async () => {
   if (!_currentCertId) return;
   const btn = document.getElementById("btn-confirm-revoke");
-  btn.disabled    = true;
-  btn.textContent = "Revoking\u2026";
+  btn.disabled = true;
+  btn.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg> Revoking\u2026';
 
   try {
     const res  = await fetch("/api/pki/revoke", {
@@ -213,23 +372,31 @@ document.getElementById("btn-confirm-revoke").addEventListener("click", async ()
     const data = await res.json();
     document.getElementById("revokeModal").style.display = "none";
 
-    if (data.status === "revoked") {
-      // Update status rows in-place
-      document.getElementById("pki-revoked").innerHTML = '<span class="t-badge err">Revoked</span>';
-      document.getElementById("pki-valid").innerHTML   = '<span class="t-badge err">Invalid</span>';
+    if (data.status === "revoked" || data.status === "already_revoked") {
+      document.getElementById("pki-revoked").innerHTML =
+        '<span class="t-badge err">Revoked</span>';
+      document.getElementById("pki-valid").innerHTML =
+        '<span class="t-badge err">Invalid</span>';
       document.getElementById("pki-reason-badge").innerHTML =
         '<span class="t-badge warn">certificate_revoked</span>';
 
-      // Swap button \u2192 badge
       document.getElementById("btn-pki-revoke").style.display    = "none";
       document.getElementById("pki-revoked-badge").style.display = "";
 
       // Auto-refresh CRL list
       document.getElementById("btn-pki-crl").click();
 
-      // Toast notification
+      // UX-06: scroll CRL into view
+      setTimeout(() => {
+        const crlResult = document.getElementById("pki-crl-result");
+        if (crlResult) crlResult.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      }, 400);
+
+      // Toast
       const toast = document.createElement("div");
-      toast.textContent = "Certificate revoked successfully.";
+      toast.textContent = data.status === "already_revoked"
+        ? "Certificate was already revoked."
+        : "Certificate revoked successfully.";
       toast.style.cssText =
         "position:fixed;bottom:24px;right:24px;z-index:9999;" +
         "background:var(--navy);color:#fff;padding:10px 18px;" +
@@ -238,15 +405,13 @@ document.getElementById("btn-confirm-revoke").addEventListener("click", async ()
       document.body.appendChild(toast);
       setTimeout(() => toast.remove(), 2500);
     } else {
-      alert("Revocation failed: " + (data.error || "Unknown error"));
+      showPkiError("Revocation failed: " + (data.error || "Unknown error"));
     }
   } catch (e) {
-    alert("Request failed: " + e.message);
+    showPkiError("Request failed: " + e.message);
   } finally {
-    btn.disabled    = false;
-    btn.textContent = "Revoke";
-    // Re-add SVG icon (simpler: just set innerHTML)
-    btn.innerHTML = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg> Revoke`;
+    btn.disabled = false;
+    btn.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg> Revoke';
   }
 });
 
@@ -255,7 +420,7 @@ document.getElementById("revokeModal").addEventListener("click", function(e) {
   if (e.target === this) this.style.display = "none";
 });
 
-/* \u2500\u2500 PKI: Load / Refresh CRL \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 */
+/* -- PKI: Load / Refresh CRL ----------------------------------- */
 document.getElementById("btn-pki-crl").addEventListener("click", async () => {
   try {
     const res  = await fetch("/api/pki/crl");
@@ -263,75 +428,85 @@ document.getElementById("btn-pki-crl").addEventListener("click", async () => {
     const list = document.getElementById("pki-crl-list");
 
     if (!data.revoked || data.revoked.length === 0) {
-      list.innerHTML = `<p style="color:var(--text-3);font-size:.8125rem;padding:8px 0;">
-        No certificates have been revoked.</p>`;
+      list.innerHTML = '<p style="color:var(--text-3);font-size:.8125rem;padding:8px 0;">No certificates have been revoked.</p>';
     } else {
-      // Enhanced table: cert_id | revoked_at | copy
-      let html = `<table style="width:100%;border-collapse:collapse;">
-        <thead><tr style="background:var(--bg-subtle);">
-          <th style="padding:6px 8px;font-size:.6rem;font-weight:600;letter-spacing:.06em;
-            text-transform:uppercase;color:var(--text-2);border-bottom:1.5px solid var(--border);
-            text-align:left;">Certificate ID</th>
-          <th style="padding:6px 8px;font-size:.6rem;font-weight:600;letter-spacing:.06em;
-            text-transform:uppercase;color:var(--text-2);border-bottom:1.5px solid var(--border);
-            text-align:left;">Revoked At</th>
-          <th style="padding:6px 8px;border-bottom:1.5px solid var(--border);"></th>
-        </tr></thead><tbody>`;
+      let html = '<table style="width:100%;border-collapse:collapse;">'
+        + '<thead><tr style="background:var(--bg-subtle);">'
+        + '<th style="padding:6px 8px;font-size:.6rem;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--text-2);border-bottom:1.5px solid var(--border);text-align:left;">Certificate ID</th>'
+        + '<th style="padding:6px 8px;font-size:.6rem;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--text-2);border-bottom:1.5px solid var(--border);text-align:left;">Revoked At</th>'
+        + '<th style="padding:6px 8px;border-bottom:1.5px solid var(--border);"></th>'
+        + '</tr></thead><tbody>';
 
       data.revoked.forEach(entry => {
-        // Support old plain-string format + new dict format
         const id = typeof entry === "string" ? entry : entry.cert_id;
-        const ts = (typeof entry === "object" && entry.revoked_at && entry.revoked_at !== "unknown")
-          ? entry.revoked_at.replace("T", " ").slice(0, 19) + " UTC"
-          : "\u2014";
-        html += `<tr style="border-bottom:1px solid var(--border);">
-          <td style="padding:6px 8px;font-family:'IBM Plex Mono',monospace;font-size:.6rem;
-            color:var(--slate);" title="${id}">${id.slice(0, 20)}\u2026</td>
-          <td style="padding:6px 8px;font-size:.75rem;color:var(--text-2);white-space:nowrap;">${ts}</td>
-          <td style="padding:6px 8px;text-align:right;">
-            <button onclick="copyToClipboard('${id}')" title="Copy full cert_id"
-              style="background:none;border:none;cursor:pointer;color:var(--slate);
-                     padding:0;display:inline-flex;align-items:center;gap:3px;font-size:.75rem;">
-              <svg width="11" height="11" viewBox="0 0 24 24" fill="none"
-                stroke="currentColor" stroke-width="2">
-                <rect x="9" y="9" width="13" height="13" rx="2"/>
-                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
-              </svg>
-              Copy
-            </button>
-          </td>
-        </tr>`;
+        // BUG-05 FIX: legacy entries show descriptive label with tooltip
+        const isLegacy = typeof entry === "object" && (!entry.revoked_at || entry.revoked_at === "unknown");
+        const ts = isLegacy
+          ? '<span title="Revoked before timestamp logging was enabled" style="cursor:help;color:var(--text-3);font-style:italic;font-size:.75rem;">Legacy Revocation</span>'
+          : entry.revoked_at.replace("T", " ").slice(0, 19) + " UTC";
+        html += '<tr style="border-bottom:1px solid var(--border);">'
+          + `<td style="padding:6px 8px;font-family:'IBM Plex Mono',monospace;font-size:.6rem;color:var(--slate);" title="${id}">${id.slice(0, 20)}\u2026</td>`
+          + `<td style="padding:6px 8px;font-size:.75rem;color:var(--text-2);white-space:nowrap;">${ts}</td>`
+          + '<td style="padding:6px 8px;text-align:right;">'
+          + `<button onclick="copyToClipboard('${id}')" title="Copy full cert_id" style="background:none;border:none;cursor:pointer;color:var(--slate);padding:0;display:inline-flex;align-items:center;gap:3px;font-size:.75rem;">`
+          + '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>'
+          + 'Copy</button></td></tr>';
       });
       html += "</tbody></table>";
       list.innerHTML = html;
     }
     document.getElementById("pki-crl-result").style.display = "";
+
+    // UX-07: change button label after first load
+    if (!_crlLoaded) {
+      _crlLoaded = true;
+      const crlBtn = document.getElementById("btn-pki-crl");
+      crlBtn.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg> Refresh CRL';
+    }
   } catch (e) {
-    alert("Failed to load CRL: " + e.message);
+    showPkiError("Failed to load CRL: " + e.message);
   }
 });
 
-/* ── TSA: Helper to populate the TSA panel from sign result ─────── */
+/* -- TSA: Helper to populate the TSA panel --------------------- */
 window.populateTsaPanel = function(tsaToken, tsaValid) {
   if (!tsaToken) return;
-  document.getElementById("tsa-placeholder").style.display = "none";  // fix: was classList
-  document.getElementById("tsa-info").style.display = "";             // fix: was classList
+  document.getElementById("tsa-placeholder").style.display = "none";
+  document.getElementById("tsa-info").style.display = "";
   document.getElementById("tsa-timestamp").textContent = tsaToken.timestamp
-    ? tsaToken.timestamp.replace("T", " ").slice(0, 19) + " UTC" : "—";
-  document.getElementById("tsa-name").textContent      = tsaToken.tsa      || "—";
-  document.getElementById("tsa-hash").textContent      = (tsaToken.hash || "").slice(0, 32) + (tsaToken.hash && tsaToken.hash.length > 32 ? "…" : "");
-  document.getElementById("tsa-valid").innerHTML       = tsaValid === true
+    ? tsaToken.timestamp.replace("T", " ").slice(0, 19) + " UTC" : "\u2014";
+  document.getElementById("tsa-name").textContent  = tsaToken.tsa  || "\u2014";
+  document.getElementById("tsa-hash").textContent  = (tsaToken.hash || "").slice(0, 32) +
+    (tsaToken.hash && tsaToken.hash.length > 32 ? "\u2026" : "");
+  document.getElementById("tsa-valid").innerHTML   = tsaValid === true
     ? '<span class="t-badge ok">Valid</span>'
     : tsaValid === false
       ? '<span class="t-badge err">Invalid</span>'
-      : '<span class="t-badge pending">—</span>';
+      : '<span class="t-badge pending">\u2014</span>';
 };
 
-/* ── Merkle: Compare two files ───────────────────────────────────── */
+/* BUG-04 FIX: restore TSA token from localStorage on analysis page load */
+(function restoreTsaFromStorage() {
+  try {
+    const raw = localStorage.getItem("lastTsaToken");
+    if (!raw) return;
+    const token = JSON.parse(raw);
+    const valid = JSON.parse(localStorage.getItem("lastTsaValid") || "null");
+    if (token && typeof window.populateTsaPanel === "function") {
+      window.populateTsaPanel(token, valid);
+    }
+  } catch (_) {}
+})();
+
+/* -- Merkle: Compare two files --------------------------------- */
 document.getElementById("btn-merkle-compare").addEventListener("click", async () => {
   const f1 = document.getElementById("merkle-file1").files[0];
   const f2 = document.getElementById("merkle-file2").files[0];
-  if (!f1 || !f2) return alert("Select both files first.");
+  // Phase 4 FIX: inline error instead of alert
+  if (!f1 || !f2) {
+    showMerkleError("Please select both files before comparing.");
+    return;
+  }
 
   const fd = new FormData();
   fd.append("file1", f1);
@@ -340,29 +515,30 @@ document.getElementById("btn-merkle-compare").addEventListener("click", async ()
   try {
     const res  = await fetch("/api/compare", { method: "POST", body: fd });
     const data = await res.json();
-    if (data.error) return alert(data.error);
+    if (data.error) {
+      showMerkleError(data.error);
+      return;
+    }
 
     const m = data.merkle;
-    document.getElementById("merkle-orig-root").textContent   = (m.original_root || "").slice(0, 32) + "…";
-    document.getElementById("merkle-mod-root").textContent    = (m.modified_root  || "").slice(0, 32) + "…";
+    document.getElementById("merkle-orig-root").textContent   = (m.original_root || "").slice(0, 32) + "\u2026";
+    document.getElementById("merkle-mod-root").textContent    = (m.modified_root  || "").slice(0, 32) + "\u2026";
     document.getElementById("merkle-match").innerHTML         = m.roots_match
       ? '<span class="t-badge ok">Roots Match</span>'
       : '<span class="t-badge err">Roots Differ</span>';
     document.getElementById("merkle-orig-chunks").textContent  = m.original_chunks;
     document.getElementById("merkle-mod-chunks").textContent   = m.modified_chunks;
 
-    // Show mismatched chunk indices for usability (Issue 3)
     const mismatchEl = document.getElementById("merkle-mismatch-count");
     if (m.mismatch_count === 0) {
-      mismatchEl.innerHTML = '<span class="t-badge ok">0 — identical</span>';
+      mismatchEl.innerHTML = '<span class="t-badge ok">0 \u2014 identical</span>';
     } else {
       const indices = (m.mismatched_chunks || []).slice(0, 20).join(", ");
-      const more    = (m.mismatched_chunks || []).length > 20 ? " …" : "";
-      mismatchEl.innerHTML = `<span class="t-badge err">${m.mismatch_count} chunks differ</span>
-        <div style="font-size:.75rem;color:var(--text-2);margin-top:4px;">Changed indices: [${indices}${more}]</div>`;
+      const more    = (m.mismatched_chunks || []).length > 20 ? " \u2026" : "";
+      mismatchEl.innerHTML = `<span class="t-badge err">${m.mismatch_count} chunks differ</span>`
+        + `<div style="font-size:.75rem;color:var(--text-2);margin-top:4px;">Changed indices: [${indices}${more}]</div>`;
     }
 
-    // Bar chart — fintech palette
     const ctx = document.getElementById("merkleChart");
     ctx.style.display = "";
     if (ctx._chart) ctx._chart.destroy();
@@ -385,9 +561,8 @@ document.getElementById("btn-merkle-compare").addEventListener("click", async ()
       },
     });
 
-    document.getElementById("merkle-result").style.display = "";  // fix: was classList
+    document.getElementById("merkle-result").style.display = "";
   } catch (e) {
-    alert("Merkle compare error: " + e.message);
+    showMerkleError("Merkle compare error: " + e.message);
   }
 });
-
