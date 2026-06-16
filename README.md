@@ -78,7 +78,7 @@ project/
 1. **Clone the Repository**:
    ```bash
    git clone https://github.com/Atomiicradius/Veritas-A-PKI-Enabled-Cryptographic-Trust-and-Document-Verification-Platform.git
-   cd Veritas-A-PKI-Enabled-Cryptographic-Trust-and-Document-Verification-Platform
+   cd Veritas-A-PKI-Enabled-Cryptographic-Trust-and-Document-Verification-Platform/project
    ```
 
 2. **Install Dependencies**:
@@ -109,3 +109,20 @@ project/
 * **`POST /api/pki/issue`**: Manually request certificate issuance for a user.
 * **`POST /api/pki/revoke`**: Revoke a specific certificate ID.
 * **`GET /api/pki/status?cert_id=<id>`**: Query verification details and status for a specific certificate ID.
+
+---
+
+## 🔒 Release & Stabilization Updates
+
+The platform recently underwent a comprehensive stability, UX, and security polish phase. Key improvements include:
+
+* **Zero Browser Alerts**: Replaced legacy browser alerts (`alert()`) with elegant inline validation elements (`.v-error` panels) across all panels, ensuring professional visual hierarchy and preventing screen-blocking events.
+* **Two-Step Verification Flow**: Resolved event race conditions by separating the action to show the verifier settings panel (`Verify Document`) from the actual verification trigger (`Run Verification`).
+* **Cross-Page State Persistence**: Integrated local storage tracking for the Timestamp Authority (TSA) tokens. Signing a document on the dashboard now automatically populates the TSA details panel on the Analysis page.
+* **PKI Status and Revocation Enhancements**:
+  * Exposed full, copyable certificate IDs within the Certificate Status check response.
+  * Added auto-scroll to the Revocation List view upon successfully revoking a certificate.
+  * Dynamically updated the CRL loader action label to **Refresh CRL** on subsequent updates.
+  * Implemented specific *Legacy Revocation* status markers for certificates revoked prior to timestamp logging.
+* **Destructive Action Safety Guards**: Protected the audit ledger from accidental deletion by adding a confirmation modal popup ("Clear Audit Log?") before invoking the database reset.
+* **Visual Theme Alignment**: Resolved styling issues with danger elements (e.g. `.v-btn-danger`) to match the clean, premium corporate dark-theme color palette.
