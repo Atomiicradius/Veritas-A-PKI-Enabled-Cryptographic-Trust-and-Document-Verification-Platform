@@ -2,8 +2,10 @@ import os
 import json
 import uuid
 import shutil
+import io
+from functools import wraps
 
-from flask import Flask, request, jsonify, render_template, send_from_directory
+from flask import Flask, request, jsonify, render_template, send_from_directory, session, redirect, url_for, send_file
 
 from crypto.keygen import generate_keys, save_keys, load_private_key, load_public_key
 from crypto.hasher import compute_hash
@@ -11,7 +13,36 @@ from crypto.signer import sign_document
 from crypto.verifier import verify_document
 from analysis.avalanche import compute_avalanche_from_bytes
 from analysis.attack_sim import get_security_levels, tamper_file
-from audit.logger import init_db, log_operation, get_all_logs, clear_logs
+from audit.logger import (
+    init_db, log_operation, get_all_logs, clear_logs,
+    create_user, get_user_by_username, check_user_password
+)
+from qr_stamper import stamp_pdf_with_qr
+
+import firebase_admin
+from firebase_admin import credentials, auth
+
+# Initialize Firebase Admin SDK
+candidates = [
+    os.path.join(os.path.dirname(__file__), "firebase-adminsdk.json"),
+    os.path.join(os.path.dirname(__file__), "firebaseadminsdk.json")
+]
+cred_path = None
+for p in candidates:
+    if os.path.exists(p):
+        cred_path = p
+        break
+
+try:
+    if cred_path:
+        cred = credentials.Certificate(cred_path)
+        firebase_admin.initialize_app(cred)
+    else:
+        # Try default environment initialization
+        firebase_admin.initialize_app()
+except Exception as e:
+    print(f"WARNING: Firebase Admin SDK could not be initialized: {e}")
+    print("Please place your Firebase service account JSON file at 'firebaseadminsdk.json' in the project root.")
 
 # ── New v2 modules (additive – do not remove existing imports) ────────────────
 from crypto.certificate import (
@@ -29,6 +60,37 @@ SIGS_DIR = os.path.join(BASE_DIR, "signatures")
 
 app = Flask(__name__)
 app.config["MAX_CONTENT_LENGTH"] = 50 * 1024 * 1024  # 50 MB
+
+# Session secret key loading/generating logic
+SECRET_KEY_PATH = os.path.join(BASE_DIR, ".secret_key")
+if os.path.exists(SECRET_KEY_PATH):
+    with open(SECRET_KEY_PATH, "rb") as f:
+        app.secret_key = f.read()
+else:
+    import secrets
+    key = secrets.token_bytes(32)
+    with open(SECRET_KEY_PATH, "wb") as f:
+        f.write(key)
+    app.secret_key = key
+
+
+# Auth Decorators
+def login_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if "username" not in session:
+            return redirect(url_for("login"))
+        return f(*args, **kwargs)
+    return decorated_function
+
+
+def api_login_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if "username" not in session:
+            return jsonify({"error": "Unauthorized. Please log in."}), 401
+        return f(*args, **kwargs)
+    return decorated_function
 
 
 def _ensure_dirs():
@@ -59,22 +121,96 @@ def _save_upload(file_obj) -> str:
 # ── Routes ──────────────────────────────────────────────────────────────────
 
 @app.route("/")
+@login_required
 def dashboard():
     return render_template("dashboard.html")
 
 
 @app.route("/analysis")
+@login_required
 def analysis_page():
     return render_template("analysis.html")
 
 
 @app.route("/audit")
+@login_required
 def audit_page():
     logs = get_all_logs()
     return render_template("audit.html", logs=logs)
 
 
+# ── Auth Routes ─────────────────────────────────────────────────────────────
+
+@app.route("/signup", methods=["GET", "POST"])
+def signup():
+    if "username" in session:
+        return redirect(url_for("dashboard"))
+    
+    if request.method == "POST":
+        data = request.get_json(force=True) or {}
+        id_token = data.get("idToken")
+        email = data.get("email")
+        username = data.get("username")
+        
+        if not id_token:
+            return jsonify({"error": "Missing ID token"}), 400
+            
+        try:
+            decoded_token = auth.verify_id_token(id_token)
+            uid = decoded_token['uid']
+            
+            display_name = decoded_token.get("name") or username or email or "User"
+            session["username"] = display_name
+            session["firebase_uid"] = uid
+            
+            log_operation("USER_SIGNUP", display_name, "", display_name, 0, "SUCCESS", f"Firebase UID: {uid}")
+            return jsonify({"success": True, "redirect": url_for("dashboard")})
+        except Exception as e:
+            log_operation("USER_SIGNUP", username or email or "?", "", "", 0, "FAILED", str(e))
+            return jsonify({"error": f"Invalid ID token: {str(e)}"}), 401
+            
+    return render_template("signup.html")
+
+
+@app.route("/login", methods=["GET", "POST"])
+def login():
+    if "username" in session:
+        return redirect(url_for("dashboard"))
+        
+    if request.method == "POST":
+        data = request.get_json(force=True) or {}
+        id_token = data.get("idToken")
+        
+        if not id_token:
+            return jsonify({"error": "Missing ID token"}), 400
+            
+        try:
+            decoded_token = auth.verify_id_token(id_token)
+            uid = decoded_token['uid']
+            display_name = decoded_token.get("name") or decoded_token.get("email") or "User"
+            session["username"] = display_name
+            session["firebase_uid"] = uid
+            
+            log_operation("USER_LOGIN", display_name, "", display_name, 0, "SUCCESS", f"Firebase UID: {uid}")
+            return jsonify({"success": True, "redirect": url_for("dashboard")})
+        except Exception as e:
+            log_operation("USER_LOGIN", "?", "", "?", 0, "FAILED", str(e))
+            return jsonify({"error": f"Invalid ID token: {str(e)}"}), 401
+            
+    return render_template("login.html")
+
+
+@app.route("/logout", methods=["GET", "POST"])
+def logout():
+    username = session.pop("username", None)
+    session.pop("firebase_uid", None)
+    if username:
+        log_operation("USER_LOGOUT", username, "", username, 0, "SUCCESS", "User logged out")
+    return redirect(url_for("login"))
+
+
 @app.route("/api/sign", methods=["POST"])
+@api_login_required
 def api_sign():
     file = request.files.get("file")
     user = request.form.get("user", "userA")
@@ -130,6 +266,23 @@ def api_sign():
             merkle_root=merkle_info["merkle_root"],
         )
 
+        # Check if the file is a PDF. If so, stamp it and return it directly.
+        if file.filename.lower().endswith(".pdf"):
+            qr_metadata = {
+                "sig_id":      sig_id,
+                "file_hash":   file_hash,
+                "signer":      user,
+                "timestamp":   tsa_token.get("timestamp") if isinstance(tsa_token, dict) else "",
+                "merkle_root":  merkle_info["merkle_root"]
+            }
+            stamped_pdf = stamp_pdf_with_qr(file_data, qr_metadata)
+            return send_file(
+                io.BytesIO(stamped_pdf),
+                mimetype="application/pdf",
+                as_attachment=True,
+                download_name=f"signed_{file.filename}"
+            )
+
         return jsonify({
             "status":      "signed",
             "sig_id":      sig_id,
@@ -151,6 +304,7 @@ def api_sign():
 
 
 @app.route("/api/verify", methods=["POST"])
+@api_login_required
 def api_verify():
     file = request.files.get("file")
     sig_file = request.files.get("sig_file")
@@ -257,6 +411,7 @@ def api_verify():
 
 
 @app.route("/api/tamper", methods=["POST"])
+@api_login_required
 def api_tamper():
     file = request.files.get("file")
     sig_id = request.form.get("sig_id")
@@ -300,6 +455,7 @@ def api_tamper():
 
 
 @app.route("/api/compare", methods=["POST"])
+@api_login_required
 def api_compare():
     file1 = request.files.get("file1")
     file2 = request.files.get("file2")
@@ -346,6 +502,7 @@ def api_compare():
 
 
 @app.route("/api/performance", methods=["POST"])
+@api_login_required
 def api_performance():
     mode = request.json.get("mode", "file_size") if request.is_json else "file_size"
     key_size = int(request.json.get("key_size", 2048)) if request.is_json else 2048
@@ -361,16 +518,19 @@ def api_performance():
 
 
 @app.route("/api/attack_sim")
+@api_login_required
 def api_attack_sim():
     return jsonify({"levels": get_security_levels()})
 
 
 @app.route("/api/audit")
+@api_login_required
 def api_audit():
     return jsonify({"logs": get_all_logs()})
 
 
 @app.route("/api/audit/clear", methods=["POST"])
+@api_login_required
 def api_audit_clear():
     """Delete all rows from audit_log. Preserves schema; does NOT drop table."""
     try:
@@ -381,6 +541,7 @@ def api_audit_clear():
 
 
 @app.route("/api/download_sig/<sig_id>")
+@api_login_required
 def download_sig(sig_id):
     return send_from_directory(SIGS_DIR, f"{sig_id}.sig", as_attachment=True)
 
@@ -388,6 +549,7 @@ def download_sig(sig_id):
 # ── PKI / Certificate routes (v2 additions) ──────────────────────────────
 
 @app.route("/api/pki/issue", methods=["POST"])
+@api_login_required
 def api_pki_issue():
     """Manually issue a certificate for a user's public key."""
     data = request.get_json(force=True) or {}
@@ -401,6 +563,7 @@ def api_pki_issue():
 
 
 @app.route("/api/pki/revoke", methods=["POST"])
+@api_login_required
 def api_pki_revoke():
     """Add a cert_id to the Certificate Revocation List."""
     data    = request.get_json(force=True) or {}
@@ -439,6 +602,7 @@ def api_pki_revoke():
 
 
 @app.route("/api/pki/status", methods=["GET"])
+@api_login_required
 def api_pki_status():
     """Check the status of a certificate by cert_id."""
     cert_id = request.args.get("cert_id", "")
@@ -452,6 +616,7 @@ def api_pki_status():
 
 
 @app.route("/api/pki/crl", methods=["GET"])
+@api_login_required
 def api_pki_crl():
     """Return the current Certificate Revocation List."""
     from crypto.certificate import _load_crl

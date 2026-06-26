@@ -112,24 +112,29 @@ project/
 ### Prerequisites
 * Python 3.10 or higher.
 * Platform compatibility: Windows, macOS, or Linux.
+* A Firebase Project configured with the **Email/Password** sign-in method.
 
 ### Set Up Steps
-1. Navigate to the project directory:
+1. Navigate to the project root directory:
    ```bash
-   cd project
+   cd Veritas
    ```
 
-2. Install python dependencies:
+2. Install python dependencies (including `firebase-admin`):
    ```bash
    pip install -r requirements.txt
    ```
 
-3. Initialize local cryptographic keys and local CA (Optional - will auto-generate if missing):
+3. Configure Firebase Credentials (Server-side):
+   * Obtain your Service Account private key JSON file from the Firebase Console (under **Project Settings > Service Accounts**).
+   * Rename the downloaded JSON file to **`firebaseadminsdk.json`** and place it in the project root directory.
+
+4. Initialize local cryptographic keys and local CA (Optional - will auto-generate if missing):
    ```bash
    python generate_keys.py
    ```
 
-4. Launch the web application:
+5. Launch the web application:
    ```bash
    python app.py
    ```

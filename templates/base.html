@@ -21,6 +21,7 @@
       Veritas
     </a>
 
+    {% if session.username %}
     <div class="v-nav-links">
       <a class="v-nav-link {% if request.path == '/' %}active{% endif %}" href="/">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
@@ -36,10 +37,21 @@
       </a>
     </div>
 
+    <div class="v-nav-user-actions" style="display: flex; align-items: center; gap: 16px;">
+      <span class="v-user-tag" style="display: flex; align-items: center; gap: 6px; font-weight: 500; color: var(--navy); font-size: 0.8125rem;">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+        {{ session.username }}
+      </span>
+      <a class="v-nav-link v-btn-danger v-btn-sm" href="/logout" style="padding: 4px 10px; font-size: 0.75rem; border-radius: var(--radius-sm); border: 1px solid #DFC8C8; display: inline-flex; align-items: center; background: #F5EEEE; color: var(--err);">
+        Logout
+      </a>
+    </div>
+    {% else %}
     <div class="v-nav-status">
       <div class="v-status-dot"></div>
-      All Systems Operational
+      Secure PKI Platform
     </div>
+    {% endif %}
   </nav>
 
   <div class="v-page">

@@ -1,6 +1,7 @@
 import sqlite3
 import os
 from datetime import datetime
+from werkzeug.security import generate_password_hash, check_password_hash
 
 DB_PATH = os.path.join(os.path.dirname(__file__), "..", "audit.db")
 
@@ -44,6 +45,14 @@ def init_db():
             key_size INTEGER,
             result TEXT,
             notes TEXT
+        )
+    """)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS users (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            username TEXT UNIQUE NOT NULL,
+            password_hash TEXT NOT NULL,
+            created_at TEXT NOT NULL
         )
     """)
     conn.commit()
@@ -111,3 +120,36 @@ def clear_logs() -> int:
     conn.commit()
     conn.close()
     return deleted
+
+
+def create_user(username, password) -> bool:
+    """Create a new user. Returns True if successful, False if username already exists."""
+    conn = _get_conn()
+    try:
+        pw_hash = generate_password_hash(password)
+        conn.execute(
+            "INSERT INTO users (username, password_hash, created_at) VALUES (?, ?, ?)",
+            (username, pw_hash, datetime.utcnow().isoformat())
+        )
+        conn.commit()
+        return True
+    except sqlite3.IntegrityError:
+        return False
+    finally:
+        conn.close()
+
+
+def get_user_by_username(username) -> dict:
+    """Retrieve user details by username."""
+    conn = _get_conn()
+    row = conn.execute("SELECT * FROM users WHERE username = ?", (username,)).fetchone()
+    conn.close()
+    return dict(row) if row else None
+
+
+def check_user_password(username, password) -> dict:
+    """Verify credentials. Returns user dict if valid, else None."""
+    user = get_user_by_username(username)
+    if user and check_password_hash(user["password_hash"], password):
+        return user
+    return None

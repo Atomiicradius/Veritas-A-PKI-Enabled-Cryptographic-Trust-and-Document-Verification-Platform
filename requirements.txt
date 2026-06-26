@@ -1,2 +1,6 @@
 flask>=3.0.0
 cryptography>=42.0.0
+firebase-admin>=6.2.0
+qrcode>=7.4.2
+pymupdf>=1.23.0
+pillow>=10.0.0

@@ -1,0 +1,112 @@
+{% extends "base.html" %}
+
+{% block title %}Veritas - Login{% endblock %}
+
+{% block content %}
+<div class="auth-container" style="display: flex; align-items: center; justify-content: center; min-height: calc(100vh - 160px); padding: 20px 0;">
+  <div class="v-card" style="width: 100%; max-width: 400px; box-shadow: var(--shadow); border: 1px solid var(--border-md);">
+    <div class="v-card-header" style="justify-content: center; padding: 24px 20px 12px; border-bottom: none;">
+      <div style="display: flex; flex-direction: column; align-items: center; gap: 8px;">
+        <div class="v-brand-mark" style="width: 48px; height: 48px; font-size: 1.5rem; border-radius: 8px;">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+          </svg>
+        </div>
+        <h4 style="font-family: 'Playfair Display', serif; font-size: 1.5rem; font-weight: 600; color: var(--navy); margin-top: 8px;">Welcome to Veritas</h4>
+        <p style="font-size: 0.8125rem; color: var(--text-2); margin-top: -2px;">PKI-Enabled Verification Platform</p>
+      </div>
+    </div>
+    
+    <div class="v-card-body" style="padding: 24px 28px 32px;">
+      <form id="loginForm" class="gap-3-col">
+        <div id="errorContainer" class="v-error" style="margin-top: 0; margin-bottom: 12px; display: none;">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+          <span id="errorMessage"></span>
+        </div>
+        
+        <div>
+          <label class="v-label" for="email">Email Address</label>
+          <input type="email" id="email" name="email" class="v-input" placeholder="name@domain.com" required autofocus />
+        </div>
+        
+        <div>
+          <label class="v-label" for="password">Password</label>
+          <input type="password" id="password" name="password" class="v-input" placeholder="••••••••" required />
+        </div>
+        
+        <button type="submit" class="v-btn v-btn-primary" style="margin-top: 8px; font-weight: 600;">
+          Sign In
+        </button>
+      </form>
+      
+      <div class="v-divider"></div>
+      
+      <p style="font-size: 0.8125rem; text-align: center; color: var(--text-2); margin: 0;">
+        Don't have an account? <a href="{{ url_for('signup') }}" style="color: var(--navy); font-weight: 600; text-decoration: underline;">Sign Up</a>
+      </p>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+  import { getAuth, signInWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyCTp4Ig4MP9Mncz7WStJGZInSEMJEBFhx0",
+    authDomain: "daaproject-cd3b7.firebaseapp.com",
+    projectId: "daaproject-cd3b7",
+    storageBucket: "daaproject-cd3b7.firebasestorage.app",
+    messagingSenderId: "189314705306",
+    appId: "1:189314705306:web:fdc1dda5523c28a7c7fc23",
+    measurementId: "G-TDG5535D5S"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const auth = getAuth(app);
+
+  // Ensure Firebase client session is cleared when landing on the login page
+  signOut(auth).catch(err => console.log("Firebase signout error on login page load: ", err));
+
+  const form = document.getElementById("loginForm");
+  const errorContainer = document.getElementById("errorContainer");
+  const errorMessage = document.getElementById("errorMessage");
+
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    errorContainer.style.display = "none";
+    
+    const email = document.getElementById("email").value;
+    const password = document.getElementById("password").value;
+
+    try {
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      const user = userCredential.user;
+      
+      const idToken = await user.getIdToken();
+
+      const response = await fetch("{{ url_for('login') }}", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ idToken: idToken })
+      });
+
+      const result = await response.json();
+      if (response.ok && result.success) {
+        window.location.href = result.redirect;
+      } else {
+        errorMessage.textContent = result.error || "Authentication failed on backend.";
+        errorContainer.style.display = "flex";
+      }
+    } catch (error) {
+      console.error(error);
+      errorMessage.textContent = error.message.replace("Firebase: ", "");
+      errorContainer.style.display = "flex";
+    }
+  });
+</script>
+{% endblock %}
