@@ -54,7 +54,7 @@
         {% else %}
         {% for log in logs %}
         <tr>
-          <td class="muted" style="white-space:nowrap; font-size:.75rem;">{{ log.timestamp | replace('T', ' ') | truncate(19, True, '') }}</td>
+          <td class="muted" style="white-space:nowrap; font-size:.75rem;">{{ log.timestamp | to_ist }}</td>
           <td style="font-weight:600; font-size:.8125rem; white-space:nowrap;">{{ log.operation }}</td>
           <td style="max-width:140px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="{{ log.filename }}">{{ log.filename }}</td>
           <td><code class="mono">{{ (log.file_hash or '')[:16] }}{% if log.file_hash and log.file_hash|length > 16 %}&hellip;{% endif %}</code></td>

@@ -45,6 +45,15 @@ Veritas is a professional cryptographic analysis, simulation, and verification p
 ### Persistent Audit Ledger
 * Collects and records all security operations, performance metrics, and validation logs to a local database.
 
+### Side-Channel Timing Attack Simulator
+* Watch a naive byte-by-byte comparator leak secrets through measurable latency differences, versus a constant-time implementation that reveals nothing.
+* Magnifies early-exit timing leaks through artificial sleep injections, graphing the latency trace progressively at 120 ms/point on a dual-line live chart.
+
+### Zero-Knowledge Proof (ZKP) Attestation Suite
+* Implements a simulated Schnorr Interactive Identification Protocol over the standard 2048-bit safe-prime MODP group (RFC 3526).
+* Proves knowledge of the private witness $x$ (file hash exponent) without ever disclosing it.
+* Cryptographically binds the message to the proof using a deterministic Fiat-Shamir-like binding string construct $c = \text{SHA-256}(\text{file\_hash} \parallel Y) \pmod 2$.
+
 ---
 
 ## System Architecture & Core Components
@@ -260,6 +269,61 @@ Revokes a cryptographic certificate.
   }
   ```
 
+### Side-Channel Timing Analysis
+
+#### `POST /api/analysis/simulate-timing-attack`
+Simulates naive early-exit vs constant-time signature verification under 16-byte signature checking.
+* **Response (JSON)**:
+  ```json
+  {
+    "vulnerable": [
+      { "step": 0, "state": "Byte 0 Fail", "ms": 0.045 }
+    ],
+    "secure": [
+      { "step": 0, "state": "Byte 0 Fail", "ms": 10.12 }
+    ]
+  }
+  ```
+
+### ZKP Attestation Suite
+
+#### `POST /api/zkp/initiate`
+Establishes the Schnorr statement $(x, y)$ and transient commitment $(r, Y)$.
+* **Payload (JSON)**:
+  * `file_hash`: File digest hex string (optional)
+* **Response (JSON)**:
+  ```json
+  {
+    "public_identity_y": "0x5f3e...",
+    "commitment_Y": "0xa7d2...",
+    "group_params": "RFC 3526 / 2048-bit MODP Group",
+    "generator": "G = 2"
+  }
+  ```
+
+#### `POST /api/zkp/challenge`
+Derives the deterministic challenge bit $c$ bound to the file hash and public commitment $Y$.
+* **Response (JSON)**:
+  ```json
+  {
+    "challenge_bit": 1
+  }
+  ```
+
+#### `POST /api/zkp/verify`
+Computes Prover's response scalar $s$ using stored challenge, and asserts verify equivalence: $g^s \equiv Y \cdot y^c \pmod P$.
+* **Payload (JSON)**:
+  * `file_hash`: Live verify-time file digest hex string
+* **Response (JSON)**:
+  ```json
+  {
+    "response_s": "0x7d81...",
+    "challenge_used": 1,
+    "verified": true,
+    "disclosure_rate": "0.00%"
+  }
+  ```
+
 ---
 
 ## Database & Storage Formats
@@ -305,3 +369,7 @@ The platform has been updated to improve user experience, system safety, and ove
    * The revocation view includes "Legacy Revocation" indicators for certificates modified before timestamping was introduced.
 5. **Confirmation Guards**: High-risk operations (such as resetting the SQLite audit log) require confirmation via an overlay modal before running.
 6. **Unified Styling Rules**: Removed bootstrap dependencies and defined consistent button styles, including `.v-btn-danger`, for a uniform dark-theme look.
+7. **Side-Channel Progressive Trace**: Implements progressive trace rendering (at 120 ms intervals per probe) on Chart.js with monospace probe log readouts.
+8. **Fiat-Shamir ZKP Binding**: Secures the Schnorr Identification Protocol by deterministically deriving the challenge bit $c = \text{SHA-256}(\text{file\_hash} \parallel Y) \pmod 2$.
+9. **Automatic PDF Stamp Stripping**: Enhances verification reliability by automatically stripping the Veritas QR verification stamp page from signed PDFs before validating RSA-PSS signatures.
+10. **IST Timezone Localization**: All server-side template and client-side JavaScript date readouts have been localized to Indian Standard Time (IST).

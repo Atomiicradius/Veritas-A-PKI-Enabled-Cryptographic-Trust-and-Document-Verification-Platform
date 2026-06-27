@@ -473,3 +473,230 @@ a { color: inherit; text-decoration: none; }
 /* ── Audit clear modal ──────────────────────────────────────────────────── */
 #clearModal { display:none; position:fixed; inset:0; z-index:500; background:rgba(30,30,30,.45); align-items:center; justify-content:center; }
 
+
+/* ── Timing Attack Simulator ─────────────────────────────────────────────── */
+
+/* Two-column panel: chart left, terminal right */
+.timing-panel {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.5rem;
+  align-items: start;
+}
+
+/* Telemetry terminal — dark monospace readout */
+.timing-terminal {
+  font-family: 'IBM Plex Mono', 'Courier New', monospace;
+  font-size: .75rem;
+  line-height: 1.65;
+  background: #0d0d0f;
+  color: #00ff88;
+  padding: 14px 16px;
+  border-radius: 6px;
+  border: 1px solid #1e2a1e;
+  height: 340px;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  word-break: break-all;
+  box-shadow: inset 0 2px 8px rgba(0,0,0,.35);
+  scrollbar-width: thin;
+  scrollbar-color: #2a4a2a #0d0d0f;
+}
+.timing-terminal::-webkit-scrollbar { width: 6px; }
+.timing-terminal::-webkit-scrollbar-track { background: #0d0d0f; }
+.timing-terminal::-webkit-scrollbar-thumb { background: #2a4a2a; border-radius: 3px; }
+
+/* Individual log line colours */
+.timing-terminal .t-probe   { color: #ff6b6b; }    /* red  — PROBE fail   */
+.timing-terminal .t-lock    { color: #ffd93d; }    /* amber — LOCK detect  */
+.timing-terminal .t-secure  { color: #6bcbff; }    /* blue  — SECURE path  */
+.timing-terminal .t-header  { color: #888; font-style: italic; }
+
+/* Summary stat cards */
+.timing-summary {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+.ts-card {
+  flex: 1;
+  min-width: 160px;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px 18px;
+  background: var(--bg-subtle);
+  transition: var(--t);
+  animation: tsCardIn .4s ease both;
+}
+@keyframes tsCardIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: none; }
+}
+.ts-card-ok   { border-color: #C5D8C7; background: #EEF4EF; }
+.ts-card-warn { border-color: #E6D5B0; background: #FDF8EE; }
+.ts-card-err  { border-color: #DFC8C8; background: #F5EEEE; }
+
+.ts-card-label {
+  font-size: .6rem;
+  font-weight: 700;
+  letter-spacing: .09em;
+  text-transform: uppercase;
+  color: var(--text-2);
+  margin-bottom: 5px;
+}
+.ts-card-value {
+  font-family: 'Playfair Display', serif;
+  font-size: 1.15rem;
+  font-weight: 600;
+  color: var(--navy);
+  line-height: 1.2;
+  margin-bottom: 3px;
+}
+.ts-card-ok   .ts-card-value { color: var(--ok); }
+.ts-card-warn .ts-card-value { color: var(--warn); }
+.ts-card-err  .ts-card-value { color: var(--err); }
+.ts-card-sub {
+  font-size: .7rem;
+  color: var(--text-2);
+}
+
+/* Responsive: stack on narrow viewports */
+@media (max-width: 820px) {
+  .timing-panel { grid-template-columns: 1fr; }
+}
+
+
+/* ── ZKP Attestation Suite ───────────────────────────────────────────────── */
+
+/* Horizontal pipeline row */
+.zkp-pipeline {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  margin: 1.5rem 0;
+  flex-wrap: wrap;
+}
+
+/* Pipeline node card */
+.zkp-node {
+  min-width: 130px;
+  text-align: center;
+  padding: 1rem;
+  border-radius: 8px;
+  border: 1.5px solid var(--border);
+  background: var(--bg-subtle);
+  transition: border-color 0.3s ease, background 0.3s ease, box-shadow 0.3s ease;
+}
+
+/* Active — currently processing */
+.zkp-node--active {
+  border-color: var(--slate);
+  background: #EEF3F8;
+  box-shadow: 0 0 0 3px rgba(79,100,122,.12);
+}
+
+/* Success — step passed */
+.zkp-node--success {
+  border-color: var(--ok);
+  background: #EEF4EF;
+  box-shadow: 0 0 0 3px rgba(85,122,91,.1);
+}
+
+/* Error — step failed */
+.zkp-node--error {
+  border-color: var(--err);
+  background: #F5EEEE;
+  box-shadow: 0 0 0 3px rgba(141,92,92,.1);
+}
+
+/* Step number badge */
+.zkp-node__step {
+  font-size: .6875rem;
+  font-weight: 600;
+  letter-spacing: .07em;
+  text-transform: uppercase;
+  color: var(--text-3);
+  margin-bottom: 4px;
+}
+
+/* Node label */
+.zkp-node__label {
+  font-size: .8125rem;
+  font-weight: 500;
+  color: var(--text);
+  margin-bottom: 6px;
+}
+
+/* Status pill */
+.zkp-node__status {
+  display: inline-block;
+  font-size: .6875rem;
+  font-weight: 600;
+  padding: 2px 10px;
+  border-radius: 20px;
+  letter-spacing: .03em;
+  background: var(--bg);
+  color: var(--text-3);
+  border: 1px solid var(--border);
+  transition: background 0.3s, color 0.3s, border-color 0.3s;
+}
+.zkp-node--active  .zkp-node__status { background: #DDE9F2; color: var(--slate);  border-color: var(--slate); }
+.zkp-node--success .zkp-node__status { background: #DFF0E1; color: var(--ok);    border-color: var(--ok);   }
+.zkp-node--error   .zkp-node__status { background: #F0DEDE; color: var(--err);   border-color: var(--err);  }
+
+/* Arrow separator */
+.zkp-arrow {
+  color: var(--text-3);
+  font-size: 1.2rem;
+  flex-shrink: 0;
+  user-select: none;
+}
+
+/* ZKP telemetry terminal */
+.zkp-terminal {
+  font-family: 'IBM Plex Mono', 'Courier New', monospace;
+  font-size: .75rem;
+  line-height: 1.7;
+  background: #0d0d0d;
+  color: #00ff88;
+  padding: 14px 16px;
+  border-radius: 6px;
+  border: 0.5px solid var(--border);
+  height: 280px;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  word-break: break-all;
+  margin-bottom: 1rem;
+  box-shadow: inset 0 2px 8px rgba(0,0,0,.4);
+  scrollbar-width: thin;
+  scrollbar-color: #1e3a1e #0d0d0d;
+}
+.zkp-terminal::-webkit-scrollbar { width: 6px; }
+.zkp-terminal::-webkit-scrollbar-track { background: #0d0d0d; }
+.zkp-terminal::-webkit-scrollbar-thumb { background: #1e3a1e; border-radius: 3px; }
+
+/* Coloured log-line spans inside zkp-terminal */
+.zkp-terminal .zl-system  { color: #aaaaaa; }
+.zkp-terminal .zl-prover  { color: #00ff88; }
+.zkp-terminal .zl-verif   { color: #6bcbff; }
+.zkp-terminal .zl-tx      { color: #ffd93d; }
+.zkp-terminal .zl-info    { color: #b0b0b0; }
+.zkp-terminal .zl-success { color: #33ff99; font-weight: 600; }
+.zkp-terminal .zl-failure { color: #ff6b6b; font-weight: 600; }
+.zkp-terminal .zl-err     { color: #ff4444; }
+.zkp-terminal .zl-assert  { color: #c77dff; }
+
+/* ZKP summary flex row — reuses .ts-card from timing simulator */
+.zkp-summary {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-top: 1rem;
+  animation: tsCardIn .4s ease both;
+}
+
+@media (max-width: 820px) {
+  .zkp-pipeline { flex-direction: column; align-items: stretch; }
+  .zkp-arrow { transform: rotate(90deg); align-self: center; }
+}

@@ -47,7 +47,7 @@ def _load_crl() -> list:
     """
     if not os.path.exists(CRL_PATH):
         return []
-    with open(CRL_PATH, "r") as f:
+    with open(CRL_PATH, "r", encoding="utf-8") as f:
         raw = json.load(f)
     result = []
     for entry in raw:
@@ -60,7 +60,7 @@ def _load_crl() -> list:
 
 def _save_crl(crl: list) -> None:
     _ensure_certs_dir()
-    with open(CRL_PATH, "w") as f:
+    with open(CRL_PATH, "w", encoding="utf-8") as f:
         json.dump(crl, f, indent=2)
 
 
@@ -166,7 +166,7 @@ def issue_certificate(subject: str, user_public_key) -> dict:
     cert = {**payload, "signature": signature}
 
     cert_path = os.path.join(CERTS_DIR, f"{cert_id}.json")
-    with open(cert_path, "w") as f:
+    with open(cert_path, "w", encoding="utf-8") as f:
         json.dump(cert, f, indent=2)
 
     return cert
@@ -177,7 +177,7 @@ def load_certificate(cert_id: str) -> dict | None:
     cert_path = os.path.join(CERTS_DIR, f"{cert_id}.json")
     if not os.path.exists(cert_path):
         return None
-    with open(cert_path, "r") as f:
+    with open(cert_path, "r", encoding="utf-8") as f:
         return json.load(f)
 
 

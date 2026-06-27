@@ -1,5 +1,33 @@
 /* Analysis page JS */
 
+/* ── Utility: convert ISO/UTC timestamp to Indian Standard Time (IST) ────── */
+function formatToIST(utcString) {
+  if (!utcString) return "\u2014";
+  try {
+    let dateStr = utcString;
+    if (!dateStr.endsWith("Z") && !dateStr.includes("+") && !dateStr.includes("GMT")) {
+      dateStr = dateStr.replace(" ", "T") + "Z";
+    }
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return utcString;
+    const formatter = new Intl.DateTimeFormat("en-GB", {
+      timeZone: "Asia/Kolkata",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      hour12: false
+    });
+    const parts = formatter.formatToParts(d);
+    const getVal = type => parts.find(p => p.type === type).value;
+    return `${getVal("year")}-${getVal("month")}-${getVal("day")} ${getVal("hour")}:${getVal("minute")}:${getVal("second")} IST`;
+  } catch (e) {
+    return utcString;
+  }
+}
+
 /* ── Utility: set a summary-card value element ───────────────────────────── */
 function _setCard(id, text) {
   const el = document.getElementById(id);
@@ -324,8 +352,8 @@ document.getElementById("btn-pki-check").addEventListener("click", async () => {
 
     document.getElementById("pki-subject").textContent  = cert.subject;
     document.getElementById("pki-issuer").textContent   = cert.issuer;
-    document.getElementById("pki-issued").textContent   = (cert.issued_at  || "").replace("T", " ").slice(0, 19) + " UTC";
-    document.getElementById("pki-expires").textContent  = (cert.expires_at || "").replace("T", " ").slice(0, 19) + " UTC";
+    document.getElementById("pki-issued").textContent   = formatToIST(cert.issued_at);
+    document.getElementById("pki-expires").textContent  = formatToIST(cert.expires_at);
     document.getElementById("pki-revoked").innerHTML    = ver.revoked
       ? '<span class="t-badge err">Revoked</span>'
       : '<span class="t-badge ok">Not Revoked</span>';
@@ -443,7 +471,7 @@ document.getElementById("btn-pki-crl").addEventListener("click", async () => {
         const isLegacy = typeof entry === "object" && (!entry.revoked_at || entry.revoked_at === "unknown");
         const ts = isLegacy
           ? '<span title="Revoked before timestamp logging was enabled" style="cursor:help;color:var(--text-3);font-style:italic;font-size:.75rem;">Legacy Revocation</span>'
-          : entry.revoked_at.replace("T", " ").slice(0, 19) + " UTC";
+          : formatToIST(entry.revoked_at);
         html += '<tr style="border-bottom:1px solid var(--border);">'
           + `<td style="padding:6px 8px;font-family:'IBM Plex Mono',monospace;font-size:.6rem;color:var(--slate);" title="${id}">${id.slice(0, 20)}\u2026</td>`
           + `<td style="padding:6px 8px;font-size:.75rem;color:var(--text-2);white-space:nowrap;">${ts}</td>`
@@ -474,7 +502,7 @@ window.populateTsaPanel = function(tsaToken, tsaValid) {
   document.getElementById("tsa-placeholder").style.display = "none";
   document.getElementById("tsa-info").style.display = "";
   document.getElementById("tsa-timestamp").textContent = tsaToken.timestamp
-    ? tsaToken.timestamp.replace("T", " ").slice(0, 19) + " UTC" : "\u2014";
+    ? formatToIST(tsaToken.timestamp) : "\u2014";
   document.getElementById("tsa-name").textContent  = tsaToken.tsa  || "\u2014";
   document.getElementById("tsa-hash").textContent  = (tsaToken.hash || "").slice(0, 32) +
     (tsaToken.hash && tsaToken.hash.length > 32 ? "\u2026" : "");
@@ -566,3 +594,397 @@ document.getElementById("btn-merkle-compare").addEventListener("click", async ()
     showMerkleError("Merkle compare error: " + e.message);
   }
 });
+
+
+/* =======================================================================
+   Side-Channel Timing Attack Simulator
+   ======================================================================= */
+
+(function initTimingSimulator() {
+  const btn      = document.getElementById("btn-run-timing");
+  const btnLabel = document.getElementById("timing-btn-label");
+  const btnIcon  = document.getElementById("timing-btn-icon");
+  const panel    = document.getElementById("timing-panel");
+  const terminal = document.getElementById("timingTerminal");
+  const errBox   = document.getElementById("timing-error");
+  const errMsg   = document.getElementById("timing-error-msg");
+  const summary  = document.getElementById("timing-summary");
+
+  /* Helpers ─────────────────────────────────────────────────────────── */
+  function showTimingError(msg) {
+    errMsg.textContent = msg;
+    errBox.style.display = "flex";
+  }
+  function hideTimingError() {
+    errBox.style.display = "none";
+  }
+
+  function setButtonLoading(loading) {
+    btn.disabled = loading;
+    if (loading) {
+      btnIcon.innerHTML = `<circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>`;
+      btnLabel.textContent = "Simulating\u2026";
+    } else {
+      btnIcon.innerHTML = `<polygon points="5 3 19 12 5 21 5 3"/>`;
+      btnLabel.textContent = "Run Timing Attack Simulation";
+    }
+  }
+
+  function termAppend(html) {
+    terminal.insertAdjacentHTML("beforeend", html + "\n");
+    terminal.scrollTop = terminal.scrollHeight;
+  }
+
+  /* Chart initialisation ─────────────────────────────────────────────── */
+  let timingChart = null;
+
+  function buildTimingChart(totalSteps) {
+    const canvas = document.getElementById("timingChart");
+    if (timingChart) { timingChart.destroy(); timingChart = null; }
+
+    const labels = Array.from({ length: totalSteps }, (_, i) => i);
+    timingChart = new Chart(canvas, {
+      type: "line",
+      data: {
+        labels,
+        datasets: [
+          {
+            label: "Vulnerable \u2014 naive compare",
+            data:  new Array(totalSteps).fill(null),
+            borderColor: "rgba(220, 80, 80, 0.9)",
+            backgroundColor: "rgba(220, 80, 80, 0.08)",
+            pointBackgroundColor: "rgba(220, 80, 80, 0.9)",
+            pointRadius: 3,
+            borderWidth: 2,
+            tension: 0.3,
+            fill: true,
+          },
+          {
+            label: "Secure \u2014 constant time",
+            data:  new Array(totalSteps).fill(null),
+            borderColor: "rgba(60, 130, 220, 0.9)",
+            backgroundColor: "rgba(60, 130, 220, 0.08)",
+            pointBackgroundColor: "rgba(60, 130, 220, 0.9)",
+            pointRadius: 3,
+            borderWidth: 2,
+            tension: 0.3,
+            fill: true,
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        animation: { duration: 0 },
+        plugins: {
+          legend: {
+            display: true,
+            labels: { font: { family: "Inter, sans-serif", size: 11 }, boxWidth: 12 },
+          },
+          tooltip: {
+            callbacks: {
+              label: ctx => ` ${ctx.dataset.label}: ${ctx.parsed.y !== null ? ctx.parsed.y.toFixed(2) + " ms" : "—"}`,
+            },
+          },
+        },
+        scales: {
+          x: {
+            title: { display: true, text: "Probe Step (0–31)", font: { size: 11 } },
+            grid:  { color: "rgba(0,0,0,0.05)" },
+          },
+          y: {
+            title: { display: true, text: "Latency (ms)", font: { size: 11 } },
+            beginAtZero: true,
+            grid:  { color: "rgba(0,0,0,0.05)" },
+          },
+        },
+      },
+    });
+    return timingChart;
+  }
+
+  /* Streaming renderer ────────────────────────────────────────────────── */
+  function streamResults(vulnData, secData) {
+    const total = vulnData.length;          // should be 32 (16 bytes × 2 probes)
+    const chart = buildTimingChart(total);
+
+    // Pre-compute per-byte deltas for Lock log lines
+    const byteDeltas = {};                  // byteIndex -> { failMs, lockMs }
+    vulnData.forEach(d => {
+      const m = d.state.match(/^Byte (\d+) (Fail|Lock)$/);
+      if (!m) return;
+      const idx  = parseInt(m[1], 10);
+      const kind = m[2];
+      if (!byteDeltas[idx]) byteDeltas[idx] = {};
+      byteDeltas[idx][kind === "Fail" ? "failMs" : "lockMs"] = d.ms;
+    });
+
+    let pointer = 0;
+
+    termAppend(`<span class="t-header">─── Simulation start ─── target: VERITAS_SIG_2026 ───</span>`);
+
+    const timer = setInterval(() => {
+      if (pointer >= total) {
+        clearInterval(timer);
+        onStreamComplete(vulnData, secData, byteDeltas);
+        return;
+      }
+
+      const vp = vulnData[pointer];
+      const sp = secData[pointer];
+
+      // Paint into chart
+      chart.data.datasets[0].data[pointer] = vp.ms;
+      chart.data.datasets[1].data[pointer] = sp.ms;
+      chart.update();
+
+      // Telemetry line
+      const m = vp.state.match(/^Byte (\d+) (Fail|Lock)$/);
+      if (m) {
+        const i    = parseInt(m[1], 10);
+        const kind = m[2];
+
+        if (kind === "Fail") {
+          termAppend(`<span class="t-probe">[PROBE]: Byte ${i} mismatch \u2014 ${vp.ms.toFixed(2)}ms</span>`);
+        } else {
+          const delta = byteDeltas[i]
+            ? (byteDeltas[i].lockMs - (byteDeltas[i].failMs || 0)).toFixed(2)
+            : "?";
+          termAppend(`<span class="t-lock">[LOCK DETECTED]: Byte ${i} matched \u2014 delta +${delta}ms</span>`);
+        }
+        // Secure path log
+        termAppend(`<span class="t-secure">[SECURE]: Byte ${i} \u2014 ${sp.ms.toFixed(2)}ms (no delta leak)</span>`);
+      }
+
+      pointer++;
+    }, 120);   // 120 ms per point
+  }
+
+  /* Post-stream summary ─────────────────────────────────────────────── */
+  function onStreamComplete(vulnData, _secData, byteDeltas) {
+    termAppend(`<span class="t-header">─── Simulation complete ───</span>`);
+
+    // Total timing leaked = sum of (lock - fail) deltas
+    let totalLeaked = 0;
+    Object.values(byteDeltas).forEach(d => {
+      if (d.failMs !== undefined && d.lockMs !== undefined) {
+        totalLeaked += Math.max(0, d.lockMs - d.failMs);
+      }
+    });
+
+    document.getElementById("ts-leaked-val").textContent  = totalLeaked.toFixed(1) + " ms";
+    document.getElementById("ts-bytes-val").textContent   = "16 / 16";
+    document.getElementById("ts-secure-val").textContent  = "0 bits";
+    summary.style.display = "";
+    setButtonLoading(false);
+  }
+
+  /* Button click handler ──────────────────────────────────────────────── */
+  btn.addEventListener("click", async () => {
+    hideTimingError();
+    summary.style.display = "none";
+    terminal.innerHTML = "";
+    panel.style.display = "";
+
+    setButtonLoading(true);
+
+    try {
+      const res  = await fetch("/api/analysis/simulate-timing-attack", { method: "POST" });
+      const data = await res.json();
+
+      if (data.error) {
+        showTimingError("Simulation error: " + data.error);
+        setButtonLoading(false);
+        return;
+      }
+
+      streamResults(data.vulnerable, data.secure);
+    } catch (e) {
+      showTimingError("Request failed: " + e.message);
+      setButtonLoading(false);
+    }
+  });
+
+})();  // end initTimingSimulator IIFE
+
+
+/* =======================================================================
+   Zero-Knowledge Proof Attestation Suite
+   Schnorr Interactive Identification Protocol
+   ======================================================================= */
+
+(function initZKPSuite() {
+  /* ── DOM refs ─────────────────────────────────────────────────────────── */
+  const runBtn   = document.getElementById("zkpRunBtn");
+  const btnLabel = document.getElementById("zkpBtnLabel");
+  const btnIcon  = document.getElementById("zkpBtnIcon");
+  const errBox   = document.getElementById("zkpError");
+  const errMsg   = document.getElementById("zkpErrorMsg");
+  const terminal = document.getElementById("zkpTerminal");
+  const summary  = document.getElementById("zkpSummary");
+  const hashInput = document.getElementById("zkpHashInput");
+
+  const nodes   = [1, 2, 3, 4].map(i => document.getElementById("zkpNode" + i));
+  const statuses = [1, 2, 3, 4].map(i => document.getElementById("zkpStatus" + i));
+
+  /* ── Utilities ────────────────────────────────────────────────────────── */
+  const sleep = ms => new Promise(res => setTimeout(res, ms));
+
+  function ts() {
+    const d = new Date();
+    return d.toTimeString().slice(0, 8);
+  }
+
+  function zkLog(cls, text) {
+    terminal.insertAdjacentHTML("beforeend",
+      `<span class="${cls}">[${ts()}] ${text}</span>\n`);
+    terminal.scrollTop = terminal.scrollHeight;
+  }
+
+  function setNode(idx, state, statusText) {
+    // Remove all modifier classes then apply new one
+    nodes[idx].classList.remove("zkp-node--active", "zkp-node--success", "zkp-node--error");
+    if (state) nodes[idx].classList.add("zkp-node--" + state);
+    if (statusText !== undefined) statuses[idx].textContent = statusText;
+  }
+
+  function resetAll() {
+    nodes.forEach((n, i) => setNode(i, null, "Pending"));
+    terminal.innerHTML = "";
+    summary.style.display = "none";
+    errBox.style.display = "none";
+  }
+
+  function setBtnRunning(running) {
+    runBtn.disabled = running;
+    if (running) {
+      btnIcon.innerHTML = `<circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>`;
+      btnLabel.textContent = "Running\u2026";
+    } else {
+      btnIcon.innerHTML = `<polygon points="5 3 19 12 5 21 5 3"/>`;
+      btnLabel.textContent = "Run Interactive Pipeline";
+    }
+  }
+
+  function showError(msg) {
+    errMsg.textContent = msg;
+    errBox.style.display = "flex";
+    zkLog("zl-err", "[ERROR]: " + msg);
+  }
+
+  /* ── Main pipeline ────────────────────────────────────────────────────── */
+  runBtn.addEventListener("click", async () => {
+    resetAll();
+    setBtnRunning(true);
+
+    const fileHash = (hashInput.value || "").trim();
+
+    /* ── STEP 1: Initiate ─────────────────────────────────────────────── */
+    setNode(0, "active", "Connecting\u2026");
+    zkLog("zl-system", "[SYSTEM]: RFC 3526 / 2048-bit MODP Group initializing. G = 2.");
+
+    let initData;
+    try {
+      const res = await fetch("/api/zkp/initiate", {
+        method:  "POST",
+        headers: { "Content-Type": "application/json" },
+        body:    JSON.stringify({ file_hash: fileHash || undefined }),
+      });
+      initData = await res.json();
+      if (initData.error) { setNode(0, "error", "Failed"); showError(initData.error); setBtnRunning(false); return; }
+    } catch (e) {
+      setNode(0, "error", "Failed");
+      showError("Network error on /initiate: " + e.message);
+      setBtnRunning(false);
+      return;
+    }
+
+    setNode(0, "success", "Done");
+    zkLog("zl-system", "[SYSTEM]: " + initData.group_params + " initialized. " + initData.generator + ".");
+    zkLog("zl-prover", "[PROVER]: Transient commitment parameter r generated (kept secret).");
+    zkLog("zl-tx",    "[TX]:     Public commitment Y dispatched \u2192 " + initData.commitment_Y);
+    zkLog("zl-info",  "[INFO]:   Public identity node y \u2192 " + initData.public_identity_y);
+    zkLog("zl-info",  "[INFO]:   0 bytes of raw document data transmitted.");
+
+    await sleep(600);
+
+    /* ── STEP 2: Challenge ────────────────────────────────────────────── */
+    setNode(1, "active", "Waiting\u2026");
+
+    let challData;
+    try {
+      const res = await fetch("/api/zkp/challenge", { method: "POST" });
+      challData = await res.json();
+      if (challData.error) { setNode(1, "error", "Failed"); showError(challData.error); setBtnRunning(false); return; }
+    } catch (e) {
+      setNode(1, "error", "Failed");
+      showError("Network error on /challenge: " + e.message);
+      setBtnRunning(false);
+      return;
+    }
+
+    setNode(1, "success", "Issued");
+    zkLog("zl-verif", "[VERIFIER]: Deterministic challenge bit derived from file hash binding.");
+    zkLog("zl-verif", `[VERIFIER]: c = ${challData.challenge_bit} (SHA-256 of hash \u2225 Y, mod 2)`);
+    zkLog("zl-info",  "[INFO]:     Challenge is now cryptographically bound to the submitted document.");
+
+    await sleep(600);
+
+    /* ── STEP 3: Verify (compute scalar response) ─────────────────────── */
+    setNode(2, "active", "Computing\u2026");
+
+    let verifyData;
+    try {
+      const liveHash = (hashInput.value || "").trim();
+      const res = await fetch("/api/zkp/verify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ file_hash: liveHash })
+      });
+      verifyData = await res.json();
+      if (verifyData.error) { setNode(2, "error", "Failed"); showError(verifyData.error); setBtnRunning(false); return; }
+    } catch (e) {
+      setNode(2, "error", "Failed");
+      showError("Network error on /verify: " + e.message);
+      setBtnRunning(false);
+      return;
+    }
+
+    setNode(2, "success", "Sent");
+    zkLog("zl-prover", "[PROVER]: Scalar proof response computed \u2192 s = " + verifyData.response_s);
+    zkLog("zl-prover", "[PROVER]: s = (r + c\u00b7x) mod (P\u22121). Private x never transmitted.");
+
+    await sleep(600);
+
+    /* ── STEP 4: Validation result ─────────────────────────────────────── */
+    setNode(3, "active", "Asserting\u2026");
+    await sleep(300);
+
+    if (verifyData.verified === true) {
+      setNode(3, "success", "Verified \u2714");
+      zkLog("zl-assert",  "[ASSERTION]: g^s \u2261 Y\u00b7y^c (mod P) \u2192 TRUE");
+      zkLog("zl-success", "[SUCCESS]:   Zero-disclosure attestation cleared. Proof confirmed.");
+    } else {
+      setNode(3, "error", "Failed \u2718");
+      zkLog("zl-failure", "[FAILURE]:   Proof assertion failed. Mathematical relationship invalid.");
+    }
+
+    /* ── Summary ──────────────────────────────────────────────────────── */
+    document.getElementById("zkpBytesVal").textContent   = "0";
+    document.getElementById("zkpLeakageVal").textContent = verifyData.disclosure_rate || "0.00%";
+
+    const proofEl   = document.getElementById("zkpProofVal");
+    const validCard = document.getElementById("zkpValidCard");
+    validCard.classList.remove("ts-card-ok", "ts-card-err");
+    if (verifyData.verified === true) {
+      proofEl.textContent = "YES";
+      validCard.classList.add("ts-card-ok");
+    } else {
+      proofEl.textContent = "NO";
+      validCard.classList.add("ts-card-err");
+    }
+
+    summary.style.display = "";
+    setBtnRunning(false);
+  });
+
+})();  // end initZKPSuite IIFE

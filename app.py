@@ -12,7 +12,10 @@ from crypto.hasher import compute_hash
 from crypto.signer import sign_document
 from crypto.verifier import verify_document
 from analysis.avalanche import compute_avalanche_from_bytes
-from analysis.attack_sim import get_security_levels, tamper_file
+from analysis.attack_sim import (
+    get_security_levels, tamper_file,
+    naive_signature_verify, secure_signature_verify,
+)
 from audit.logger import (
     init_db, log_operation, get_all_logs, clear_logs,
     create_user, get_user_by_username, check_user_password
@@ -51,6 +54,7 @@ from crypto.certificate import (
 )
 from crypto.timestamp import generate_tsa_keys, create_timestamp, verify_timestamp
 from analysis.merkle import generate_root_hash, verify_merkle_tree
+from crypto.zkp import ZKPEngine, P as ZKP_P
 
 BASE_DIR = os.path.dirname(__file__)
 KEYS_DIR = os.path.join(BASE_DIR, "keys")
@@ -72,6 +76,26 @@ else:
     with open(SECRET_KEY_PATH, "wb") as f:
         f.write(key)
     app.secret_key = key
+
+
+# ── Timezone formatting: convert UTC/ISO to Indian Standard Time (IST) ──────
+@app.template_filter('to_ist')
+def to_ist_filter(utc_str):
+    if not utc_str:
+        return ""
+    try:
+        from datetime import datetime, timezone, timedelta
+        clean_str = utc_str.replace("Z", "")
+        if "T" in clean_str:
+            dt = datetime.fromisoformat(clean_str)
+        else:
+            dt = datetime.fromisoformat(clean_str.replace(" ", "T"))
+        dt = dt.replace(tzinfo=timezone.utc)
+        ist_tz = timezone(timedelta(hours=5, minutes=30))
+        ist_dt = dt.astimezone(ist_tz)
+        return ist_dt.strftime("%Y-%m-%d %H:%M:%S IST")
+    except Exception:
+        return utc_str
 
 
 # Auth Decorators
@@ -255,7 +279,7 @@ def api_sign():
 
         sig_id   = uuid.uuid4().hex
         sig_path = os.path.join(SIGS_DIR, f"{sig_id}.sig")
-        with open(sig_path, "w") as fh:
+        with open(sig_path, "w", encoding="utf-8") as fh:
             json.dump(sig_dict, fh, indent=2)
 
         log_operation(
@@ -276,12 +300,16 @@ def api_sign():
                 "merkle_root":  merkle_info["merkle_root"]
             }
             stamped_pdf = stamp_pdf_with_qr(file_data, qr_metadata)
-            return send_file(
+            response = send_file(
                 io.BytesIO(stamped_pdf),
                 mimetype="application/pdf",
                 as_attachment=True,
                 download_name=f"signed_{file.filename}"
             )
+            response.headers["X-Sig-Id"] = sig_id
+            response.headers["X-File-Hash"] = file_hash
+            response.headers["Access-Control-Expose-Headers"] = "X-Sig-Id, X-File-Hash"
+            return response
 
         return jsonify({
             "status":      "signed",
@@ -320,14 +348,20 @@ def api_verify():
     try:
         if sig_file:
             sig_path = _save_upload(sig_file)
-            with open(sig_path) as fh:
-                sig_dict = json.load(fh)
+            try:
+                with open(sig_path, encoding="utf-8") as fh:
+                    sig_dict = json.load(fh)
+            except (UnicodeDecodeError, json.JSONDecodeError):
+                return jsonify({"error": "Invalid signature file format. Please upload a valid .sig JSON file."}), 400
         elif sig_id:
             stored = os.path.join(SIGS_DIR, f"{sig_id}.sig")
             if not os.path.exists(stored):
                 return jsonify({"error": "Signature not found"}), 404
-            with open(stored) as fh:
-                sig_dict = json.load(fh)
+            try:
+                with open(stored, encoding="utf-8") as fh:
+                    sig_dict = json.load(fh)
+            except (UnicodeDecodeError, json.JSONDecodeError):
+                return jsonify({"error": "Signature data corrupt or invalid."}), 400
         else:
             return jsonify({"error": "No signature provided"}), 400
 
@@ -437,8 +471,11 @@ def api_tamper():
         if sig_id:
             stored = os.path.join(SIGS_DIR, f"{sig_id}.sig")
             if os.path.exists(stored):
-                with open(stored) as f:
-                    sig_dict = json.load(f)
+                try:
+                    with open(stored, encoding="utf-8") as f:
+                        sig_dict = json.load(f)
+                except (UnicodeDecodeError, json.JSONDecodeError):
+                    sig_dict = None
                 pub = load_public_key(verifier_user, KEYS_DIR)
                 valid = verify_document(path, sig_dict, pub)
                 file_hash = compute_hash(path, "sha256")
@@ -523,10 +560,163 @@ def api_attack_sim():
     return jsonify({"levels": get_security_levels()})
 
 
+@app.route("/api/analysis/simulate-timing-attack", methods=["POST"])
+@api_login_required
+def api_simulate_timing_attack():
+    """Side-channel timing attack simulator.
+
+    For each of the 16 target bytes we run two probes:
+      - Fail probe  : set byte to 0xFF  → naive compare exits early
+      - Lock probe  : set byte to correct value → naive compare matches one more byte
+    Both probes are also run through the constant-time (secure) path for comparison.
+    Returns two datasets (vulnerable / secure) for the frontend chart.
+    """
+    TARGET_SIG = b"VERITAS_SIG_2026"   # 16 bytes
+    N = len(TARGET_SIG)
+
+    vulnerable_dataset = []
+    secure_dataset      = []
+
+    current_guess = bytearray(N)        # starts as 16 × 0x00
+
+    try:
+        for i in range(N):
+            # ── Fail probe: inject a wrong byte ──────────────────────────
+            current_guess[i] = 0xFF
+            _, v_fail_ms = naive_signature_verify(TARGET_SIG, bytes(current_guess))
+            _, s_fail_ms = secure_signature_verify(TARGET_SIG, bytes(current_guess))
+
+            vulnerable_dataset.append({
+                "step":  i * 2,
+                "state": f"Byte {i} Fail",
+                "ms":    v_fail_ms,
+            })
+            secure_dataset.append({
+                "step":  i * 2,
+                "state": f"Byte {i} Fail",
+                "ms":    s_fail_ms,
+            })
+
+            # ── Lock probe: inject the correct byte ───────────────────────
+            current_guess[i] = TARGET_SIG[i]
+            _, v_lock_ms = naive_signature_verify(TARGET_SIG, bytes(current_guess))
+            _, s_lock_ms = secure_signature_verify(TARGET_SIG, bytes(current_guess))
+
+            vulnerable_dataset.append({
+                "step":  i * 2 + 1,
+                "state": f"Byte {i} Lock",
+                "ms":    v_lock_ms,
+            })
+            secure_dataset.append({
+                "step":  i * 2 + 1,
+                "state": f"Byte {i} Lock",
+                "ms":    s_lock_ms,
+            })
+
+        return jsonify({
+            "vulnerable": vulnerable_dataset,
+            "secure":     secure_dataset,
+        })
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
 @app.route("/api/audit")
 @api_login_required
 def api_audit():
     return jsonify({"logs": get_all_logs()})
+
+
+@app.route("/api/zkp/initiate", methods=["POST"])
+@api_login_required
+def api_zkp_initiate():
+    """Build Schnorr statement and commitment, persist both in session."""
+    import secrets as _secrets
+    data = request.get_json(force=True) or {}
+    file_hash = data.get("file_hash") or "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    # Ensure it is a valid non-empty hex string
+    if not file_hash or not all(c in '0123456789abcdefABCDEF' for c in file_hash):
+        file_hash = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+
+    try:
+        x, y = ZKPEngine.generate_statement(file_hash)
+        r, Y = ZKPEngine.compute_commitment()
+
+        # Persist both secret values in the server-side session
+        session["zkp_x"] = str(x)
+        session["zkp_r"] = str(r)
+        session["zkp_y"] = str(y)
+        session["zkp_Y"] = str(Y)
+        session["zkp_file_hash"] = file_hash
+
+        return jsonify({
+            "public_identity_y": hex(y)[:24] + "...",
+            "commitment_Y":      hex(Y)[:24] + "...",
+            "group_params":      "RFC 3526 / 2048-bit MODP Group",
+            "generator":         "G = 2",
+        })
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/zkp/challenge", methods=["POST"])
+@api_login_required
+def api_zkp_challenge():
+    """Issue a deterministic challenge bit derived from the file hash and commitment Y."""
+    import hashlib
+    if 'zkp_file_hash' not in session or 'zkp_Y' not in session:
+        return jsonify({"error": "No active ZKP session. Run /initiate first."}), 400
+
+    try:
+        user_input_hash = session.get('zkp_file_hash', '')
+        public_commitment_Y = session.get('zkp_Y', '')
+
+        binding_string = f"{user_input_hash}{public_commitment_Y}"
+        hashed_val = hashlib.sha256(binding_string.encode('utf-8')).hexdigest()
+        c = int(hashed_val, 16) % 2
+
+        session['zkp_c'] = c
+        return jsonify({ "challenge_bit": c })
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/zkp/verify", methods=["POST"])
+@api_login_required
+def api_zkp_verify():
+    """Compute scalar response s using stored challenge, and assert proof using re-calculated challenge."""
+    import hashlib
+    try:
+        x = int(session["zkp_x"])
+        r = int(session["zkp_r"])
+        c_prover = int(session["zkp_c"])
+        y = int(session["zkp_y"])
+        Y = int(session["zkp_Y"])
+    except KeyError:
+        return jsonify({"error": "No active ZKP session. Run /initiate first."}), 400
+
+    try:
+        data = request.get_json(force=True) or {}
+        file_hash = data.get("file_hash") or "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+
+        # Recompute challenge based on the verify-time file_hash and commitment Y
+        binding_string = f"{file_hash}{Y}"
+        hashed_val = hashlib.sha256(binding_string.encode('utf-8')).hexdigest()
+        c_verifier = int(hashed_val, 16) % 2
+
+        # Response s is calculated using the challenge c_prover generated during Step 2
+        s = (r + c_prover * x) % (ZKP_P - 1)
+        valid = ZKPEngine.assert_proof(Y, y, c_verifier, s)
+
+        return jsonify({
+            "response_s":    hex(s)[:24] + "...",
+            "challenge_used": c_verifier,
+            "verified":      valid,
+            "disclosure_rate": "0.00%",
+        })
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
 
 
 @app.route("/api/audit/clear", methods=["POST"])
@@ -543,7 +733,13 @@ def api_audit_clear():
 @app.route("/api/download_sig/<sig_id>")
 @api_login_required
 def download_sig(sig_id):
-    return send_from_directory(SIGS_DIR, f"{sig_id}.sig", as_attachment=True)
+    return send_from_directory(
+        SIGS_DIR,
+        f"{sig_id}.sig",
+        as_attachment=True,
+        download_name=f"{sig_id}.sig",
+        mimetype="application/octet-stream"
+    )
 
 
 # ── PKI / Certificate routes (v2 additions) ──────────────────────────────

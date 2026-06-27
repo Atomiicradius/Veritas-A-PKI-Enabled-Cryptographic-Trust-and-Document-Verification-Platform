@@ -6,6 +6,34 @@ let hashIsHex = true;
 let perfBenchMode = "file_size";
 let perfChart = null;
 
+/* ── Utility: convert ISO/UTC timestamp to Indian Standard Time (IST) ────── */
+function formatToIST(utcString) {
+  if (!utcString) return "\u2014";
+  try {
+    let dateStr = utcString;
+    if (!dateStr.endsWith("Z") && !dateStr.includes("+") && !dateStr.includes("GMT")) {
+      dateStr = dateStr.replace(" ", "T") + "Z";
+    }
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return utcString;
+    const formatter = new Intl.DateTimeFormat("en-GB", {
+      timeZone: "Asia/Kolkata",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      hour12: false
+    });
+    const parts = formatter.formatToParts(d);
+    const getVal = type => parts.find(p => p.type === type).value;
+    return `${getVal("year")}-${getVal("month")}-${getVal("day")} ${getVal("hour")}:${getVal("minute")}:${getVal("second")} IST`;
+  } catch (e) {
+    return utcString;
+  }
+}
+
 /* ── Shared inline error helper (Phase 4 — replaces all alert()) ── */
 function showInlineError(elementId, message) {
   const el = document.getElementById(elementId);
@@ -77,7 +105,71 @@ document.getElementById("btn-sign").addEventListener("click", async () => {
 
   try {
     setStatus("Signing with RSA-PSS…", "info");
-    const res  = await fetch("/api/sign", { method: "POST", body: fd });
+    const res = await fetch("/api/sign", { method: "POST", body: fd });
+
+    // ── PDF signing returns the stamped PDF directly, not JSON ──────────
+    const ct = res.headers.get("Content-Type") || "";
+    if (ct.includes("application/pdf")) {
+      const sigId = res.headers.get("X-Sig-Id");
+      const fileHash = res.headers.get("X-File-Hash");
+
+      // Trigger a file download in the browser
+      const blob = await res.blob();
+      const url  = URL.createObjectURL(blob);
+      const a    = document.createElement("a");
+      // Try to get filename from Content-Disposition header
+      const cd   = res.headers.get("Content-Disposition") || "";
+      const fnMatch = cd.match(/filename[^;=\n]*=([^;\n]*)/);
+      const filename = fnMatch ? fnMatch[1].trim().replace(/['"]/g, "") : "signed_document.pdf";
+      a.download = filename;
+      a.href = url;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+
+      if (sigId) {
+        currentSigId = sigId;
+        currentHash  = fileHash;
+
+        try {
+          // Fetch signature details from the server to populate UI
+          const sigRes = await fetch("/api/download_sig/" + sigId);
+          const sigData = await sigRes.json();
+          showResult("signed", "Signed");
+          showHashDisplay(fileHash);
+          showSigInfo(sigData);
+          showDownloadLink(sigId);
+          showSigIdDisplay(sigId);
+
+          // Reconstruct the pipeline data for the UI
+          const pipeline = [
+            { id: "upload", label: "Document Upload", value: filename, status: "done" },
+            { id: "hash", label: "SHA-256 Hash", value: fileHash.slice(0, 32) + "...", status: "done" },
+            { id: "sign", label: "RSA-PSS Sign", value: sigData.key_size + "-bit key", status: "done" },
+            { id: "output", label: "Signature Output", value: sigData.algorithm || "RSA-PSS-SHA256", status: "success" }
+          ];
+          renderPipeline(pipeline);
+
+          // Populate TSA info if present
+          if (sigData.tsa_token) {
+            try {
+              localStorage.setItem("lastTsaToken", JSON.stringify(sigData.tsa_token));
+              localStorage.setItem("lastTsaValid", "null");
+            } catch (_) {}
+            if (typeof window.populateTsaPanel === "function") {
+              window.populateTsaPanel(sigData.tsa_token, null);
+            }
+          }
+        } catch (e) {
+          console.error("Failed to populate UI details:", e);
+        }
+      }
+      setStatus("PDF signed, stamped with QR, and downloaded successfully.", "success");
+      return;
+    }
+
+    // ── All other file types return JSON ────────────────────────────────
     const data = await res.json();
     if (data.error) return setStatus("Error: " + data.error, "danger");
 
@@ -343,7 +435,9 @@ function showSigIdDisplay(sigId) {
 function showDownloadLink(sigId) {
   const block = document.getElementById("download-sig-block");
   block.style.display = "";
-  document.getElementById("download-sig-link").href = "/api/download_sig/" + sigId;
+  const link = document.getElementById("download-sig-link");
+  link.href = "/api/download_sig/" + sigId;
+  link.setAttribute("download", sigId + ".sig");
 }
 
 function showAvalancheTab(av) {
@@ -486,7 +580,7 @@ function showV2Info(data) {
     : "";
 
   const tsaTimeHtml = tsa && tsa.timestamp
-    ? `<div style="font-size:.6875rem;color:var(--text-2);margin-top:2px;">Signed: ${tsa.timestamp.replace("T"," ").slice(0,19)} UTC</div>`
+    ? `<div style="font-size:.6875rem;color:var(--text-2);margin-top:2px;">Signed: ${formatToIST(tsa.timestamp)}</div>`
     : "";
 
   const chunkCount = data.chunk_count || (data.sig_info && data.sig_info.chunk_count);

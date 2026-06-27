@@ -1,3 +1,4 @@
+
 import json
 import io
 import qrcode
